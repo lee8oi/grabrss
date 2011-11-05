@@ -45,6 +45,24 @@ set feeds(pclosforum) "http://www.pclinuxos.com/forum/index.php?board=15.0;type=
 package require http
 if {![catch {package require tls}]} { ::http::register https 443 ::tls::socket }
 
+proc feed_add {feedname url} {
+	#:add a feed to the feeds list::::::::::::::::::::::::::::::::::::::::::
+	if {![info exists feeds($feedname)]} {
+		set feeds($feedname) $url
+	} else {
+		puts "feed exists."
+	}
+}
+
+proc feed_rem {feedname} {
+	#:remove a feed from the feedss list::::::::::::::::::::::::::::::::::::
+	if {[info exists feeds($feedname)]} {
+		unset feeds($feedname)
+	} else {
+		puts "feed doesn't exist."
+	}
+}
+
 proc refresh {} {
 	#:refresh feeds:::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 	variable feeds
