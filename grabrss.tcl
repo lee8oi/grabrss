@@ -43,7 +43,7 @@ set feeds(pclosforum) "http://www.pclinuxos.com/forum/index.php?board=15.0;type=
 #!!!!!!!!!!!!!!!!!!!Experts Only Below!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
 ################################################################################
 package require http
-f {![catch {package require tls}]} { ::http::register https 443 ::tls::socket }
+if {![catch {package require tls}]} { ::http::register https 443 ::tls::socket }
 
 proc refresh {} {
 	#:refresh feeds:::::::::::::::::::::::::::::::::::::::::::::::::::::::::
