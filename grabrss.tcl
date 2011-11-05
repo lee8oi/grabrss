@@ -79,7 +79,7 @@ proc clist {feed} {
 	set count 1
 	while {($count <= $maxcache)} {
 		if {[info exists cachetitles($feed,$count)]} {
-			puts "Title: ~$feed~$count~ $cachetitles($feed,$count) ~ $cachelinks($feed,$count)"
+			puts "~$feed~$count~ Title: $cachetitles($feed,$count) ~ $cachelinks($feed,$count)"
 			incr count
 		} else {
 			break
@@ -94,7 +94,7 @@ proc dlist {feed} {
 	set count 1
 	while {($count <= $maxcache)} {
 		if {[info exists dbtitles($feed,$count)]} {
-			puts "Title: ~$feed~$count~ $dbtitles($feed,$count) ~ $dblinks($feed,$count)"
+			puts "~$feed~$count~ Title: $dbtitles($feed,$count) ~ $dblinks($feed,$count)"
 			incr count
 		} else {
 			break
@@ -148,6 +148,7 @@ proc trim_cache {feed} {
 			unset cachedescs($feed,$cindex)
 			incr nindex; incr cindex; set cacheindex($feed) $nindex
 		}
+		puts "count is $count"
 	}
 }
 
