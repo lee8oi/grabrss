@@ -1,5 +1,5 @@
 
-##################################################################################
+################################################################################
 # Copyright ©2011 lee8oi@gmail.com
 #
 # This program is free software; you can redistribute it and/or modify
@@ -13,6 +13,13 @@
 # GNU General Public License for more details.
 # http://www.gnu.org/licenses/
 #
+################################################################################
+#
+# To use: open tclsh. 'source grabrss.tcl' then 'refresh'. then refresh every so
+# often to update the feeds.
+#
+################################################################################
+
 package require http
 package require tls
 ::http::register https 443 ::tls::socket
@@ -22,6 +29,7 @@ set feeds(linuxtoday) "http://feeds.feedburner.com/linuxtoday/linux?format=xml"
 set feeds(pclinuxos) "http://pclinuxos.com/?feed=rss2"
 set feeds(securitynow) "http://leoville.tv/podcasts/sn.xml"
 set feeds(krotkie) "http://www.joemonster.org/backend.php?channel=krotkie"
+set feeds(pclosforum) "http://www.pclinuxos.com/forum/index.php?board=15.0;type=rss;action=.xml;limit=50"
 
 proc refresh {} {
 	variable feeds
@@ -79,18 +87,16 @@ proc process {data feed} {
 	}
 	regsub -all {(?i)<items.*?>.*?</items>} $data {} data
 	foreach {foo item} [regexp -all -inline {(?i)<item.*?>(.*?)</item>} $data] {
+		set item [string map {"<![CDATA[" "" "]]>" ""} $item]
 		regexp {<title.*?>(.*?)</title>}  $item subt title
 		regexp {<link.*?>(.*?)</link}     $item subl link
 		regexp {<desc.*?>(.*?)</desc.*?>} $item subd descr
-		regexp {<desc.*?<!\[CDATA\[(.*?)\]\]></desc} $item subc cddescr
 		if {![info exists title]} {set title "(none)"} {set title [unhtml $title]}
 		if {![info exists link]}  {set link  "(none)"} {set link [unhtml $link]}
 		if {![info exists descr]} {set descr "(none)"} {set descr [unhtml [join [split $descr]]]}
-		if {($descr != "")} {set cddescr "(none)"} {set descr [unhtml [join [split $cddescr]]]}
 		set match 0
 		foreach item [array names rsstitles] {
 			if {($rsstitles($item) == $title)} {
-				#set rndex [lindex [split [string map {"," " "} $item]] 1]
 				set match 1
 			}
 		}
