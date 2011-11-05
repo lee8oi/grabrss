@@ -116,6 +116,7 @@ proc fetch_data {feed url} {
 	}
 }
 proc trim_cache {feed} {
+	#:trim cache to maxcache::::::::::::::::::::::::::::::::::::::::::::::::
 	variable dbindex; variable dbtitles; variable dblinks; variable dbdescs
 	variable cachetitles; variable cachelinks; variable cachedescs; variable cacheindex
 	variable maxcache
@@ -124,51 +125,47 @@ proc trim_cache {feed} {
 	foreach item [array names cachetitles "$feed*"] {
 		incr count
 	}
-	puts "$count items found."
 	if {($count > $maxcache)} {
-		puts "greater than $maxcache."
 		set cindex 1
 		while {$count > $maxcache} {
-			puts "loop $count"
+			#:move from cache to db:::::::::::::::::::::::::::::::::
 			if {![info exists cachetitles($feed,$cindex)]} {break}
 			set dbtitles($feed,$dbindex($feed)) $cachetitles($feed,$cindex)
 			set dblinks($feed,$dbindex($feed)) $cachelinks($feed,$cindex)
 			set dbdescs($feed,$dbindex($feed)) $cachedescs($feed,$cindex)
-			puts "Added to $feed database at $dbindex($feed): $dbtitles($feed,$dbindex($feed)) from cache $cindex"
 			incr dbindex($feed)
 			incr cindex
 			incr count -1
 		}
-		puts "final cindex is $cindex increasing by 1 for cache reorder."
-		
-		#break
-		#incr cindex
 		set nindex 1
 		while {($nindex <= $count)} {
+			#:reorder cache from 1::::::::::::::::::::::::::::::::::
 			set cachetitles($feed,$nindex) $cachetitles($feed,$cindex)
 			set cachelinks($feed,$nindex) $cachelinks($feed,$cindex)
 			set cachedescs($feed,$nindex) $cachedescs($feed,$cindex)
-			puts "moved $feed $cindex to $feed $nindex"
 			incr nindex; incr cindex
 		}
-	} else {puts "nothing to do."}
+	}
 }
+
 proc cget {feed index} {
-	#:output news item stored at <feed> <index>:::::::::::::::::::::::::::::
+	#:output news item stored in cache at <feed> <index>::::::::::::::::::::
 	variable cachetitles; variable cachelinks; variable cachedescs
 	puts "Title ~ $cachetitles($feed,$index)"
 	puts "Link ~ $cachelinks($feed,$index)"
 	set desc [descdecode $cachedescs($feed,$index)]
 	puts "Description ~ $desc"
 }
+
 proc dget {feed index} {
-	#:output news item stored at <feed> <index>:::::::::::::::::::::::::::::
+	#:output news item stored in db at <feed> <index>:::::::::::::::::::::::
 	variable dbtitles; variable dblinks; variable dbdescs
 	puts "Title ~ $dbtitles($feed,$index)"
 	puts "Link ~ $dblinks($feed,$index)"
 	set desc [descdecode $dbdescs($feed,$index)]
 	puts "Description ~ $desc"
 }
+
 proc unhtml {data} {
 	#:remove html tags from data::::::::::::::::::::::::::::::::::::::::::::
 	regsub -all "(?:<b>|</b>|<b />|<em>|</em>|<strong>|</strong>)" $data"\002" data
