@@ -19,18 +19,34 @@
 # often to update the feeds. use 'dget <feed> <index>' to grab specific news
 # item.
 #
-################################################################################
-
-package require http
-package require tls
-::http::register https 443 ::tls::socket
-variable maxcache 10
+# cache is trimmed to 'maxcache' each refresh. Trimmed news items are moved to
+# 'database'.
+#
+#:::::::::::::::::::::::::::Configuration:::::::::::::::::::::::::::::::::::::::
+#
+# maxcache: How many news items should each feed have in cache at a time?
+#                      +---+
+variable maxcache	10
+#                      +---+
+#
+# feeds: set feeds here. One per setting.
+#                 +------------------------------------------------------------+
 set feeds(google) "http://news.google.com/news?ned=us&topic=h&output=rss"
 set feeds(linuxtoday) "http://feeds.feedburner.com/linuxtoday/linux?format=xml"
 set feeds(pclinuxos) "http://pclinuxos.com/?feed=rss2"
 set feeds(securitynow) "http://leoville.tv/podcasts/sn.xml"
 set feeds(krotkie) "http://www.joemonster.org/backend.php?channel=krotkie"
 set feeds(pclosforum) "http://www.pclinuxos.com/forum/index.php?board=15.0;type=rss;action=.xml;limit=50"
+#                 +------------------------------------------------------------+
+#
+################################################################################
+#!!!!!!!!!!!!!!!!!!!Experts Only Below!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
+################################################################################
+package require http
+package require tls
+::http::register https 443 ::tls::socket
+
+
 
 proc refresh {} {
 	#:refresh feeds:::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -40,6 +56,7 @@ proc refresh {} {
 		trim_cache $feed
 	}
 }
+
 proc fetch_data {feed url} {
 	#:fetch feed data and save news to cache::::::::::::::::::::::::::::::::
 	set ua "Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.9.0.5) Gecko/2008120122 Firefox/3.0.5"
@@ -74,7 +91,7 @@ proc fetch_data {feed url} {
 		}
 		::http::cleanup $http
 		variable source; variable cachetitles; variable cachelinks; variable cachedescs
-		variable cacheindex
+		variable cacheindex; variable dbindex; variable dbtitles; variable dblinks; variable dbdescs
 		if {![info exists cacheindex($feed)]} {set cacheindex($feed) 1}
 		set data [descdecode $data] ;#:markup code cleanup::::::::::::::
 		if {[regexp {(?i)<title>(.*?)</title>} $data -> foo]} {
@@ -97,7 +114,14 @@ proc fetch_data {feed url} {
 			#:check if title already exists:::::::::::::::::::::::::
 			set ismatch 0
 			foreach item [array names cachetitles] {
+				#:check cache titles::::::::::::::::::::::::::::
 				if {($cachetitles($item) == $title)} {
+					set ismatch 1
+				}
+			}
+			foreach item [array names dbtitles] {
+				#:check database titles:::::::::::::::::::::::::
+				if {($dbtitles($item) == $title)} {
 					set ismatch 1
 				}
 			}
@@ -115,6 +139,7 @@ proc fetch_data {feed url} {
 		puts "no data"
 	}
 }
+
 proc trim_cache {feed} {
 	#:trim cache to maxcache::::::::::::::::::::::::::::::::::::::::::::::::
 	variable dbindex; variable dbtitles; variable dblinks; variable dbdescs
@@ -125,6 +150,7 @@ proc trim_cache {feed} {
 	foreach item [array names cachetitles "$feed*"] {
 		incr count
 	}
+	puts "count is: $count"
 	if {($count > $maxcache)} {
 		set cindex 1
 		while {$count > $maxcache} {
@@ -133,17 +159,23 @@ proc trim_cache {feed} {
 			set dbtitles($feed,$dbindex($feed)) $cachetitles($feed,$cindex)
 			set dblinks($feed,$dbindex($feed)) $cachelinks($feed,$cindex)
 			set dbdescs($feed,$dbindex($feed)) $cachedescs($feed,$cindex)
+			puts "moved cache $feed $cindex to db $dbindex($feed)."
 			incr dbindex($feed)
 			incr cindex
 			incr count -1
+			
 		}
 		set nindex 1
 		while {($nindex <= $count)} {
 			#:reorder cache from 1::::::::::::::::::::::::::::::::::
 			set cachetitles($feed,$nindex) $cachetitles($feed,$cindex)
+			unset cachetitles($feed,$cindex)
 			set cachelinks($feed,$nindex) $cachelinks($feed,$cindex)
+			unset cachelinks($feed,$cindex)
 			set cachedescs($feed,$nindex) $cachedescs($feed,$cindex)
-			incr nindex; incr cindex
+			unset cachedescs($feed,$cindex)
+			puts "item $feed $cindex reordered to $feed $nindex. $cindex index unset."
+			incr nindex; incr cindex; set cacheindex($feed) $nindex
 		}
 	}
 }
