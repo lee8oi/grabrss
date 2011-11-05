@@ -1,3 +1,4 @@
+
 ##################################################################################
 # Copyright ©2011 lee8oi@gmail.com
 #
@@ -18,6 +19,9 @@ package require tls
 
 set feeds(google) "http://news.google.com/news?ned=us&topic=h&output=rss"
 set feeds(linuxtoday) "http://feeds.feedburner.com/linuxtoday/linux?format=xml"
+set feeds(pclinuxos) "http://pclinuxos.com/?feed=rss2"
+set feeds(securitynow) "http://leoville.tv/podcasts/sn.xml"
+set feeds(krotkie) "http://www.joemonster.org/backend.php?channel=krotkie"
 
 proc refresh {} {
 	variable feeds
@@ -57,6 +61,8 @@ proc fetch_data {feed url} {
 		}
 		::http::cleanup $http
 		process $data $feed
+	} else {
+		puts "no data"
 	}
 }
 
@@ -76,9 +82,11 @@ proc process {data feed} {
 		regexp {<title.*?>(.*?)</title>}  $item subt title
 		regexp {<link.*?>(.*?)</link}     $item subl link
 		regexp {<desc.*?>(.*?)</desc.*?>} $item subd descr
+		regexp {<desc.*?<!\[CDATA\[(.*?)\]\]></desc} $item subc cddescr
 		if {![info exists title]} {set title "(none)"} {set title [unhtml $title]}
 		if {![info exists link]}  {set link  "(none)"} {set link [unhtml $link]}
-		if {![info exists descr]} {set descr "(none)"} {set descr [unhtml $descr]}
+		if {![info exists descr]} {set descr "(none)"} {set descr [unhtml [join [split $descr]]]}
+		if {($descr != "")} {set cddescr "(none)"} {set descr [unhtml [join [split $cddescr]]]}
 		set match 0
 		foreach item [array names rsstitles] {
 			if {($rsstitles($item) == $title)} {
@@ -97,11 +105,11 @@ proc process {data feed} {
 	}
 }
 
-proc dget {chanfeed index} {
+proc dget {feed index} {
 	variable rsstitles; variable rsslinks; variable rssdescs; variable rsshashs
-	puts "Title ~ $rsstitles($chanfeed,$index)"
-	puts "Link ~ $rsslinks($chanfeed,$index)"
-	set desc [webbydescdecode $rssdescs($chanfeed,$index)]
+	puts "Title ~ $rsstitles($feed,$index)"
+	puts "Link ~ $rsslinks($feed,$index)"
+	set desc [webbydescdecode $rssdescs($feed,$index)]
 	puts "Description ~ $desc"
 }
 
@@ -119,8 +127,7 @@ proc unhtml {text} {
 proc webbydescdecode {text} {
   # code below is neccessary to prevent numerous html markups
   # from appearing in the output (ie, &quot;, &#5671;, etc)
-  # stolen (borrowed is a better term) from perplexa's urban
-  # dictionary script..
+  # borrowed from webby.
   if {![string match *&* $text]} {return $text}
   set escapes {
                &nbsp; \xa0 &iexcl; \xa1 &cent; \xa2 &pound; \xa3 &curren; \xa4
