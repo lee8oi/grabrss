@@ -91,8 +91,8 @@ proc process {data feed} {
 		regexp {<title.*?>(.*?)</title>}  $item subt title
 		regexp {<link.*?>(.*?)</link}     $item subl link
 		regexp {<desc.*?>(.*?)</desc.*?>} $item subd descr
-		if {![info exists title]} {set title "(none)"} {set title [unhtml $title]}
-		if {![info exists link]}  {set link  "(none)"} {set link [unhtml $link]}
+		if {![info exists title]} {set title "(none)"} {set title [unhtml [join [split $title]]]}
+		if {![info exists link]}  {set link  "(none)"} {set link [unhtml [join [split $link]]]}
 		if {![info exists descr]} {set descr "(none)"} {set descr [unhtml [join [split $descr]]]}
 		set match 0
 		foreach item [array names rsstitles] {
