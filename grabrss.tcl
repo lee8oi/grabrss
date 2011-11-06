@@ -16,10 +16,8 @@
 #:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 #
 # To use: open tclsh. 'source grabrss.tcl'. Then use refresh to update feeds.
-# commands available: cget, dget, clist, dlist, flist, fadd, and fdel.
+# commands available: cget, dget, clist, dlist, flist, fadd, fdel, ctrim, fetch.
 #  *c=cache f=feed d=database
-# cache is trimmed to 'maxcache' each refresh. Trimmed news items are moved to
-# a 'database' (of sorts. just made up of arrays.).
 #
 #:::::::::::::::::::::::::::Configuration:::::::::::::::::::::::::::::::::::::::
 #
@@ -44,13 +42,17 @@ set feeds(pclosforum) "http://www.pclinuxos.com/forum/index.php?board=15.0;type=
 package require http
 if {![catch {package require tls}]} { ::http::register https 443 ::tls::socket }
 
+proc help {args} {
+	puts "grabrss commands available: cget dget fadd fdel flist clist dlist ctrim fetch"
+	puts "run command without args for more information on it."
+}
+
 proc refresh {args} {
 	#:refresh feeds:::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 	variable feeds
 	puts "grabbing feeds"
 	foreach feed [array names feeds] {
-		fetch $feed $feeds($feed)
-		ctrim $feed
+		fetch $feed; ctrim $feed
 	}
 }
 
@@ -177,9 +179,11 @@ proc ctrim {{feed ""}} {
 	}
 }
 
-proc fetch {{feed ""} {url ""}} {
+proc fetch {{feed ""}} {
 	#:fetch feed data and save news to cache::::::::::::::::::::::::::::::::
-	if {($feed == "") || ($url == "")} {puts "fetch rss data from web and add new news to cache. usage: fetch <feed> <url>"; return}
+	if {($feed == "")} {puts "fetch rss data from web and add new news to cache. usage: fetch <feed>"; return}
+	variable feeds
+	if {[info exists feeds($feed)]} {set url $feeds($feed)} else {puts "invalid feed. check 'flist'?"; return}
 	set ua "Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.9.0.5) Gecko/2008120122 Firefox/3.0.5"
 	set http [::http::config -useragent $ua]
 	catch {set http [::http::geturl $url -timeout 60000]} error
