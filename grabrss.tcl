@@ -13,11 +13,11 @@
 # GNU General Public License for more details.
 # http://www.gnu.org/licenses/
 #
-################################################################################
+#:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 #
 # To use: open tclsh. 'source grabrss.tcl'. Then use refresh to update feeds.
-# commands available: cget, dget, clist, dlist,feed_add, and feed_rem.
-#
+# commands available: cget, dget, clist, dlist, flist, fadd, and fdel.
+#  *c=cache f=feed d=database
 # cache is trimmed to 'maxcache' each refresh. Trimmed news items are moved to
 # a 'database' (of sorts. just made up of arrays.).
 #
@@ -44,56 +44,72 @@ set feeds(pclosforum) "http://www.pclinuxos.com/forum/index.php?board=15.0;type=
 package require http
 if {![catch {package require tls}]} { ::http::register https 443 ::tls::socket }
 
-proc feed_add {feedname url} {
+proc refresh {args} {
+	#:refresh feeds:::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 	variable feeds
+	puts "grabbing feeds"
+	foreach feed [array names feeds] {
+		fetch $feed $feeds($feed)
+		ctrim $feed
+	}
+}
+
+proc cget {{feed ""} {index ""}} {
+	#:output news item stored in cache at <feed> <index>::::::::::::::::::::
+	if {($feed == "") || ($index == "")} {puts "cache - get item from feed at index. usage: cget <feed> <index>"; return}
+	variable cachetitles; variable cachelinks; variable cachedescs
+	puts "Title ~ $cachetitles($feed,$index)"
+	puts "Link ~ $cachelinks($feed,$index)"
+	set desc [htmldecode $cachedescs($feed,$index)]
+	puts "Description ~ $desc"
+}
+
+proc dget {{feed ""} {index ""}} {
+	#:output news item stored in db at <feed> <index>:::::::::::::::::::::::
+	if {($feed == "") || ($index == "")} {puts "database - get item from feed at index. usage: dget <feed> <index>"; return}
+	variable dbtitles; variable dblinks; variable dbdescs
+	set desc [htmldecode $dbdescs($feed,$index)]
+	puts "Title ~ $dbtitles($feed,$index)"
+	puts "Link ~ $dblinks($feed,$index)"
+	puts "Description ~ $desc"
+}
+
+proc fadd {{feed ""} {url ""}} {
 	#:add a feed to the feeds list::::::::::::::::::::::::::::::::::::::::::
-	if {![info exists feeds($feedname)]} {
-		set feeds($feedname) $url
-		puts "$feedname feed added."
+	if {($feed == "") || ($url == "")} {puts "add an rss feed to feeds list. usage: fadd <feedname> <url>"; return}
+	variable feeds
+	if {![info exists feeds($feed)]} {
+		set feeds($feed) $url
+		puts "$feed feed added."
 	} else {
 		puts "use a different name."
 	}
 }
 
-proc feed_rem {feedname} {
-	variable feeds
+proc fdel {{feed ""}} {
 	#:remove a feed from the feedss list::::::::::::::::::::::::::::::::::::
-	if {[info exists feeds($feedname)]} {
-		unset feeds($feedname)
+	if {($feed == "")} {puts "delete an rss feed from feeds list. usage: fdel <feed> <url>"; return}
+	variable feeds
+	if {[info exists feeds($feed)]} {
+		unset feeds($feed)
+		puts "$feed feed deleted."
 	} else {
 		puts "feed doesn't exist."
 	}
 }
 
-proc refresh {} {
-	#:refresh feeds:::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-	variable feeds
-	foreach feed [array names feeds] {
-		fetch_data $feed $feeds($feed)
-		trim_cache $feed
+proc flist {args} {
+	#:get list of feeds available:::::::::::::::::::::::::::::::::::::::::::
+	variable feeds; set result ""
+	foreach item [array names feeds] {
+		append result "$item "
 	}
+	puts "Available feeds: $result"
 }
 
-proc cget {feed index} {
-	#:output news item stored in cache at <feed> <index>::::::::::::::::::::
-	variable cachetitles; variable cachelinks; variable cachedescs
-	puts "Title ~ $cachetitles($feed,$index)"
-	puts "Link ~ $cachelinks($feed,$index)"
-	set desc [descdecode $cachedescs($feed,$index)]
-	puts "Description ~ $desc"
-}
-
-proc dget {feed index} {
-	#:output news item stored in db at <feed> <index>:::::::::::::::::::::::
-	variable dbtitles; variable dblinks; variable dbdescs
-	puts "Title ~ $dbtitles($feed,$index)"
-	puts "Link ~ $dblinks($feed,$index)"
-	set desc [descdecode $dbdescs($feed,$index)]
-	puts "Description ~ $desc"
-}
-
-proc clist {feed} {
+proc clist {{feed ""}} {
 	#:list feed elements from cache:::::::::::::::::::::::::::::::::::::::::
+	if {($feed == "")} {puts "cache - list items from feed. usage: clist <feed>"; return}
 	variable cachetitles; variable cachelinks; variable cachedescs; variable cacheindex
 	variable maxcache
 	set count 1
@@ -107,8 +123,9 @@ proc clist {feed} {
 	}
 }
 
-proc dlist {feed} {
+proc dlist {{feed ""}} {
 	#:list feed elements from db::::::::::::::::::::::::::::::::::::::::::::
+	if {($feed == "")} {puts "database - list items from feed. usage: dlist <feed>"; return}
 	variable dbindex; variable dbtitles; variable dblinks; variable dbdescs
 	variable maxcache
 	set count 1
@@ -122,20 +139,9 @@ proc dlist {feed} {
 	}
 }
 
-proc unhtml {data} {
-	#:remove html tags from data::::::::::::::::::::::::::::::::::::::::::::
-	regsub -all "(?:<b>|</b>|<b />|<em>|</em>|<strong>|</strong>)" $data"\002" data
-	regsub -all "(?:<u>|</u>|<u />)" $data "\037" data
-	regsub -all "(?:<br>|<br/>|<br />)" $data ". " data
-	regsub -all "<script.*?>.*?</script>" $data "" data
-	regsub -all "<style.*?>.*?</style>" $data "" data
-	regsub -all -- {<.*?>} $data " " data
-	while {[string match "*  *" $data]} { regsub -all "  " $data " " data }
-	return [string trim $data]
-}
-
-proc trim_cache {feed} {
+proc ctrim {{feed ""}} {
 	#:trim cache to maxcache::::::::::::::::::::::::::::::::::::::::::::::::
+	if {($feed == "")} {puts "trim feed to 'maxcache' size and store trimmed items in database. usage: ctrim <feed>"; return}
 	variable dbindex; variable dbtitles; variable dblinks; variable dbdescs
 	variable cachetitles; variable cachelinks; variable cachedescs; variable cacheindex
 	variable maxcache
@@ -168,12 +174,111 @@ proc trim_cache {feed} {
 			unset cachedescs($feed,$cindex)
 			incr nindex; incr cindex; set cacheindex($feed) $nindex
 		}
-		puts "count is $count"
 	}
 }
 
-proc descdecode {data} {
+proc fetch {{feed ""} {url ""}} {
+	#:fetch feed data and save news to cache::::::::::::::::::::::::::::::::
+	if {($feed == "") || ($url == "")} {puts "fetch rss data from web and add new news to cache. usage: fetch <feed> <url>"; return}
+	set ua "Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.9.0.5) Gecko/2008120122 Firefox/3.0.5"
+	set http [::http::config -useragent $ua]
+	catch {set http [::http::geturl $url -timeout 60000]} error
+	if {[info exists http]} {
+		if { [::http::status $http] == "timeout" } {
+			puts "Oops timed out."
+			return 0
+		}
+		upvar #0 $http state
+		array set meta $state(meta)
+		set url $state(url)
+		set data [::http::data $http]
+		#:handle redirects::::::::::::::::::::::::::::::::::::::::::::::
+		foreach {name value} $state(meta) {
+			if {[regexp -nocase ^location$ $name]} {
+				set mapvar [list " " "%20"]
+				::http::cleanup $http
+				catch {set http [::http::geturl $value -timeout 60000]} error
+				if {![string match -nocase "::http::*" $error]} {
+					return "http error: [string totitle $error] \( $value \)"
+				}
+				if {![string equal -nocase [::http::status $http] "ok"]} {
+					return "status: [::http::status $http]"
+				}
+				set url [string map {" " "%20"} $value]
+				upvar #0 $http state
+				if {[incr r] > 10} { puts "redirect error (>10 too deep) \( $url \)" ; return 0}
+				set data [::http::data $http]
+			}
+		}
+		::http::cleanup $http
+		variable source; variable cachetitles; variable cachelinks; variable cachedescs
+		variable cacheindex; variable dbindex; variable dbtitles; variable dblinks; variable dbdescs
+		if {![info exists cacheindex($feed)]} {set cacheindex($feed) 1}
+		set data [htmldecode $data] ;#:markup code cleanup::::::::::::::
+		if {[regexp {(?i)<title>(.*?)</title>} $data -> foo]} {
+			append source($feed) $foo
+		}
+		if {[regexp {(?i)<description>(.*?)</description>} $data -> foo]} {
+			append source($feed) " | $foo"
+		}
+		#:loop through data.grab new news:::::::::::::::::::::::::::::::
+		regsub -all {(?i)<items.*?>.*?</items>} $data {} data
+		foreach {foo item} [regexp -all -inline {(?i)<item.*?>(.*?)</item>} $data] {
+			set item [string map {"<![CDATA[" "" "]]>" ""} $item]
+			regexp {<title.*?>(.*?)</title>}  $item subt title
+			regexp {<link.*?>(.*?)</link}     $item subl link
+			regexp {<desc.*?>(.*?)</desc.*?>} $item subd descr
+			#:html tag cleanup::::::::::::::::::::::::::::::::::::::
+			if {![info exists title]} {set title "(none)"} {set title [unhtml [join [split $title]]]}
+			if {![info exists link]}  {set link  "(none)"} {set link [unhtml [join [split $link]]]}
+			if {![info exists descr]} {set descr "(none)"} {set descr [unhtml [join [split $descr]]]}
+			#:check if title already exists:::::::::::::::::::::::::
+			set ismatch 0
+			foreach item [array names cachetitles] {
+				#:check cache titles::::::::::::::::::::::::::::
+				if {($cachetitles($item) == $title)} {
+					set ismatch 1
+				}
+			}
+			foreach item [array names dbtitles] {
+				#:check database titles:::::::::::::::::::::::::
+				if {($dbtitles($item) == $title)} {
+					set ismatch 1
+				}
+			}
+			#:add news if no match found::::::::::::::::::::::::::::
+			if {$ismatch != 1} {
+				set cachetitles($feed,$cacheindex($feed)) $title
+				set cachelinks($feed,$cacheindex($feed)) $link
+				set cachedescs($feed,$cacheindex($feed)) $descr
+				puts "Breaking News ~ $feed ~ $cachetitles($feed,$cacheindex($feed)) ~ $cachelinks($feed,$cacheindex($feed))"
+				incr cacheindex($feed)
+			}
+			set match 0
+		}
+		return 1
+	} else {
+		#:no http data::::::::::::::::::::::::::::::::::::::::::::::::::
+		return 0
+	}
+}
+
+proc unhtml {{data ""}} {
+	#:remove html tags from data.borrowed from webby::::::::::::::::::::::::
+	if {($data == "")} {puts "remove html tags from data. usage: unhtml <data>"; return}
+	regsub -all "(?:<b>|</b>|<b />|<em>|</em>|<strong>|</strong>)" $data"\002" data
+	regsub -all "(?:<u>|</u>|<u />)" $data "\037" data
+	regsub -all "(?:<br>|<br/>|<br />)" $data ". " data
+	regsub -all "<script.*?>.*?</script>" $data "" data
+	regsub -all "<style.*?>.*?</style>" $data "" data
+	regsub -all -- {<.*?>} $data " " data
+	while {[string match "*  *" $data]} { regsub -all "  " $data " " data }
+	return [string trim $data]
+}
+
+proc htmldecode {{data ""}} {
 	#:cleanup html markups.borrowed from webby::::::::::::::::::::::::::::::
+	if {($data == "")} {puts "remove html markup codes from data. usage: htmldecode <data>"; return}
 	if {![string match *&* $data]} {return $data}
 	set escapes {
                &nbsp; \xa0 &iexcl; \xa1 &cent; \xa2 &pound; \xa3 &curren; \xa4
@@ -232,6 +337,7 @@ proc descdecode {data} {
                &euro; \u20AC &apos; \u0027 &lrm; "" &rlm; "" &#8236; "" &#8237; ""
                &#8238; "" &#8212; \u2014
 	};
+	#:clean up markup codes,etc:::::::::::::::::::::::::::::::::::::::::::::
 	set data [string map [list "\]" "\\\]" "\[" "\\\[" "\$" "\\\$" "\\" "\\\\"] [string map $escapes $data]]
 	regsub -all -- {&#([[:digit:]]{1,5});} $data {[format %c [string trimleft "\1" "0"]]} data
 	regsub -all -- {&#x([[:xdigit:]]{1,4});} $data {[format %c [scan "\1" %x]]} data
@@ -240,88 +346,4 @@ proc descdecode {data} {
 	return $data
 }
 
-proc fetch_data {feed url} {
-	#:fetch feed data and save news to cache::::::::::::::::::::::::::::::::
-	set ua "Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.9.0.5) Gecko/2008120122 Firefox/3.0.5"
-	set http [::http::config -useragent $ua]
-	catch {set http [::http::geturl $url -timeout 60000]} error
-	if {[info exists http]} {
-		if { [::http::status $http] == "timeout" } {
-			puts "Oops timed out."
-			return 0
-		}
-		upvar #0 $http state
-		array set meta $state(meta)
-		set url $state(url)
-		set data [::http::data $http]
-		#:handle redirects::::::::::::::::::::::::::::::::::::::::::::::
-		foreach {name value} $state(meta) {
-			if {[regexp -nocase ^location$ $name]} {
-				set mapvar [list " " "%20"]
-				::http::cleanup $http
-				catch {set http [::http::geturl $value -timeout 60000]} error
-				if {![string match -nocase "::http::*" $error]} {
-					return "http error: [string totitle $error] \( $value \)"
-				}
-				if {![string equal -nocase [::http::status $http] "ok"]} {
-					return "status: [::http::status $http]"
-				}
-				set url [string map {" " "%20"} $value]
-				upvar #0 $http state
-				if {[incr r] > 10} { puts "redirect error (>10 too deep) \( $url \)" ; return 0}
-				set data [::http::data $http]
-			}
-		}
-		::http::cleanup $http
-		variable source; variable cachetitles; variable cachelinks; variable cachedescs
-		variable cacheindex; variable dbindex; variable dbtitles; variable dblinks; variable dbdescs
-		if {![info exists cacheindex($feed)]} {set cacheindex($feed) 1}
-		set data [descdecode $data] ;#:markup code cleanup::::::::::::::
-		if {[regexp {(?i)<title>(.*?)</title>} $data -> foo]} {
-			append source($feed) $foo
-		}
-		if {[regexp {(?i)<description>(.*?)</description>} $data -> foo]} {
-			append source($feed) " | $foo"
-		}
-		#:loop through data.grab new news:::::::::::::::::::::::::::::::
-		regsub -all {(?i)<items.*?>.*?</items>} $data {} data
-		foreach {foo item} [regexp -all -inline {(?i)<item.*?>(.*?)</item>} $data] {
-			set item [string map {"<![CDATA[" "" "]]>" ""} $item]
-			regexp {<title.*?>(.*?)</title>}  $item subt title
-			regexp {<link.*?>(.*?)</link}     $item subl link
-			regexp {<desc.*?>(.*?)</desc.*?>} $item subd descr
-			#:html tag cleanup::::::::::::::::::::::::::::::::::::::
-			if {![info exists title]} {set title "(none)"} {set title [unhtml [join [split $title]]]}
-			if {![info exists link]}  {set link  "(none)"} {set link [unhtml [join [split $link]]]}
-			if {![info exists descr]} {set descr "(none)"} {set descr [unhtml [join [split $descr]]]}
-			#:check if title already exists:::::::::::::::::::::::::
-			set ismatch 0
-			foreach item [array names cachetitles] {
-				#:check cache titles::::::::::::::::::::::::::::
-				if {($cachetitles($item) == $title)} {
-					set ismatch 1
-				}
-			}
-			foreach item [array names dbtitles] {
-				#:check database titles:::::::::::::::::::::::::
-				if {($dbtitles($item) == $title)} {
-					set ismatch 1
-				}
-			}
-			#:add news if no match found::::::::::::::::::::::::::::
-			if {$ismatch != 1} {
-				set cachetitles($feed,$cacheindex($feed)) $title
-				set cachelinks($feed,$cacheindex($feed)) $link
-				set cachedescs($feed,$cacheindex($feed)) $descr
-				puts "Breaking News ~ $feed ~ $cachetitles($feed,$cacheindex($feed))"
-				incr cacheindex($feed)
-			}
-			set match 0
-		}
-		return 1
-	} else {
-		return 0
-	}
-}
-
-
+puts "grabrss by lee8oi - loaded"
