@@ -12,10 +12,13 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 # http://www.gnu.org/licenses/
+################################################################################
 #
-#:::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
-#
-# To use: open tclsh. 'source grabrss.tcl'. Then use refresh to update feeds.
+# This is a versatile tcl script that can fetch RSS feed data and keep a 'latest news'
+# cache as well as a database for old news. You can: grab items by index. List items by
+# feed. Fetch feeds. Refresh all feeds. Add/remove feeds. etc.
+# 
+# To use: open tclsh. Do 'source grabrss.tcl'. Then use 'refresh' to update all feeds.
 # commands available: cget, dget, clist, dlist, flist, fadd, fdel, ctrim, fetch.
 #  *c=cache f=feed d=database
 #
@@ -50,7 +53,7 @@ proc help {args} {
 proc refresh {args} {
 	#:refresh feeds:::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 	variable feeds
-	puts "grabbing feeds"
+	puts "refreshing feeds"
 	foreach feed [array names feeds] {
 		fetch $feed; ctrim $feed
 	}
@@ -260,10 +263,10 @@ proc fetch {{feed ""}} {
 			}
 			set match 0
 		}
-		return 1
+		return
 	} else {
 		#:no http data::::::::::::::::::::::::::::::::::::::::::::::::::
-		return 0
+		return
 	}
 }
 
