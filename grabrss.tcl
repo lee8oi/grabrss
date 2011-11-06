@@ -15,12 +15,11 @@
 #
 ################################################################################
 #
-# To use: open tclsh. 'source grabrss.tcl' then 'refresh'. then refresh every so
-# often to update the feeds. use 'dget <feed> <index>' to grab specific news
-# item.
+# To use: open tclsh. 'source grabrss.tcl'. Then use refresh to update feeds.
+# commands available: cget, dget, clist, dlist,feed_add, and feed_rem.
 #
 # cache is trimmed to 'maxcache' each refresh. Trimmed news items are moved to
-# 'database'.
+# a 'database' (of sorts. just made up of arrays.).
 #
 #:::::::::::::::::::::::::::Configuration:::::::::::::::::::::::::::::::::::::::
 #
@@ -29,7 +28,7 @@
 variable maxcache	20
 #                      +---+
 #
-# feeds: set feeds here. One per setting.
+# feeds: set feeds here. One per set.
 #                 +------------------------------------------------------------+
 set feeds(google) "http://news.google.com/news?ned=us&topic=h&output=rss"
 set feeds(linuxtoday) "http://feeds.feedburner.com/linuxtoday/linux?format=xml"
@@ -46,15 +45,18 @@ package require http
 if {![catch {package require tls}]} { ::http::register https 443 ::tls::socket }
 
 proc feed_add {feedname url} {
+	variable feeds
 	#:add a feed to the feeds list::::::::::::::::::::::::::::::::::::::::::
 	if {![info exists feeds($feedname)]} {
 		set feeds($feedname) $url
+		puts "$feedname feed added."
 	} else {
-		puts "feed exists."
+		puts "use a different name."
 	}
 }
 
 proc feed_rem {feedname} {
+	variable feeds
 	#:remove a feed from the feedss list::::::::::::::::::::::::::::::::::::
 	if {[info exists feeds($feedname)]} {
 		unset feeds($feedname)
