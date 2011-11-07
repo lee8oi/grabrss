@@ -22,7 +22,7 @@
 # 
 # To use: open tclsh. Do 'source grabrss.tcl'. Then use 'refresh' to update all feeds.
 # commands available: help, iget, cadd, flist, fadd, fdel, search, listfeed, ctrim, fetch,
-# dbackup, drestore, cflush, htmldecode, unhtml.
+# dbackup, drestore, feedtest, cflush, htmldecode, unhtml.
 #  *c=cache f=feed d=database i=item (news item)
 #
 # Todo:
@@ -49,7 +49,7 @@ proc grab {} {
 
 proc help {args} {
 	print help "grabrss commands available: iget cadd fadd fdel flist listfeed search\
-	ctrim cflush fetch dbackup drestore unhtml htmldecode"
+	ctrim cflush fetch dbackup drestore feedtest unhtml htmldecode"
 	print help "run command without args for more information on it."
 }
 
@@ -84,28 +84,33 @@ proc print {{type ""} {msg ""}} {
 	}
 }
 
-proc fadd {{feed ""} {url ""}} {
+proc fadd {{feed ""} {url ""} {quiet 0}} {
 	#:add a feed to the feeds list::::::::::::::::::::::::::::::::::::::::::
 	if {($feed == "") || ($url == "")} {print help "add an rss feed to feeds list. usage: fadd <feedname> <url>"; return}
 	variable feeds; variable cacheindex
-	if {![info exists feeds($feed)]} {
-		set feeds($feed) $url
-		if {![info exists cacheindex($feed)]} {set cacheindex($feed) 1}
-		print puts "~$feed feed added."
+	set compatable [feedtest $url]
+	if {$compatable} {
+		if {![info exists feeds($feed)]} {
+			set feeds($feed) $url
+			if {![info exists cacheindex($feed)]} {set cacheindex($feed) 1}
+			if {($quiet == 0)} {print puts "~$feed feed added."}
+		} else {
+			if {($quiet == 0)} {print puts "~use a different name."}
+		}
 	} else {
-		print puts "~use a different name."
+		print puts "incompatable feed url provided."
 	}
 }
 
-proc fdel {{feed ""}} {
+proc fdel {{feed ""} {quiet 0}} {
 	#:remove a feed from the feedss list::::::::::::::::::::::::::::::::::::
 	if {($feed == "")} {print help "delete an rss feed from feeds list. usage: fdel <feed> <url>"; return}
 	variable feeds
 	if {[info exists feeds($feed)]} {
 		unset feeds($feed)
-		print puts "~$feed feed deleted."
+		if {($quiet == 0)} {print puts "~$feed feed deleted."}
 	} else {
-		print puts "~feed doesn't exist."
+		if {($quiet == 0)} {print puts "~feed doesn't exist."}
 	}
 }
 
@@ -128,6 +133,22 @@ proc dbackup {} {
 	}
 	close $fs;
 	print puts "~backup performed."
+}
+
+proc feedtest {{url ""}} {
+	#:check url for useable feed data:::::::::::::::::::::::::::::::::::::::
+	if {($url == "")} {print help "test feed for compatability. usage: feedtest <url>"; return}
+	variable feeds
+	set feeds(feedtest) $url
+	set result [fetch feedtest 1]
+	unset feeds(feedtest)
+	if {($result == "check 1")} {
+		print puts "feed is compatable."
+		return 1
+	} else {
+		print puts "feed is not compatable."
+		return 0
+	}
 }
 
 proc iget {{src ""} {feed ""} {index ""}} {
@@ -376,7 +397,7 @@ proc ctrim {{feed ""}} {
 	}
 }
 
-proc fetch {{feed ""}} {
+proc fetch {{feed ""} {check 0}} {
 	#:fetch feed data and save news to cache::::::::::::::::::::::::::::::::
 	if {($feed == "")} {print help "fetch rss data from web and add new news to cache. usage: fetch <feed>"; return}
 	variable feeds
@@ -412,32 +433,46 @@ proc fetch {{feed ""}} {
 			}
 		}
 		::http::cleanup $http
-		set data [htmldecode $data] ;#:markup code cleanup::::::::::::::
-		if {[regexp {(?i)<title>(.*?)</title>} $data -> foo]} {
-			append source($feed) $foo
+		if {($check > 0)} {
+			set result [scrape $data $feed 1]
+			return "check $result"
+		} else {
+			scrape $data $feed
+			return
 		}
-		if {[regexp {(?i)<description>(.*?)</description>} $data -> foo]} {
-			append source($feed) " | $foo"
-		}
-		#:loop through data.grab new news:::::::::::::::::::::::::::::::
-		regsub -all {(?i)<items.*?>.*?</items>} $data {} data
-		foreach {foo item} [regexp -all -inline {(?i)<item.*?>(.*?)</item>} $data] {
-			set item [string map {"<![CDATA[" "" "]]>" ""} $item]
-			regexp {<title.*?>(.*?)</title>}  $item subt title
-			regexp {<link.*?>(.*?)</link}     $item subl link
-			regexp {<desc.*?>(.*?)</desc.*?>} $item subd descr
-			#:html tag cleanup::::::::::::::::::::::::::::::::::::::
-			if {![info exists title]} {set title "(none)"} {set title [unhtml [join [split $title]]]}
-			if {![info exists link]}  {set link  "(none)"} {set link [unhtml [join [split $link]]]}
-			if {![info exists descr]} {set descr "(none)"} {set descr [unhtml [join [split $descr]]]}
-			cadd $feed $title $link $descr
-		}
-		return
+		
 	} else {
 		#:no http data::::::::::::::::::::::::::::::::::::::::::::::::::
 		return
 	}
 }
+
+proc scrape {{data ""} {feed ""} {check 0}} {
+	#:scrape news from data. if check enabled skip cadd:::::::::::::::::::::
+	if {($data == "") || ($feed == "")} {print help "scrape news from data to feed. usage: scrape <data> <feed>"; return}
+	set data [htmldecode $data]; set success 0
+	#:loop through data.grab new news:::::::::::::::::::::::::::::::::::::::
+	regsub -all {(?i)<items.*?>.*?</items>} $data {} data
+	foreach {foo item} [regexp -all -inline {(?i)<item.*?>(.*?)</item>} $data] {
+		set item [string map {"<![CDATA[" "" "]]>" ""} $item]
+		regexp {<title.*?>(.*?)</title>}  $item subt title
+		regexp {<link.*?>(.*?)</link}     $item subl link
+		regexp {<desc.*?>(.*?)</desc.*?>} $item subd descr
+		#:html tag cleanup::::::::::::::::::::::::::::::::::::::
+		if {![info exists title]} {set title "none"} {set title [unhtml [join [split $title]]]}
+		if {![info exists link]}  {set link  "none"} {set link [unhtml [join [split $link]]]}
+		if {![info exists descr]} {set descr "none"} {set descr [unhtml [join [split $descr]]]}
+		if {($title != "none") && ($link != "none") && ($descr != "none")} {
+			if {($check == 0)} {
+				cadd $feed $title $link $descr
+			}
+			set success 1
+		}
+	}
+	return $success
+}
+
+
 
 proc unhtml {{data ""}} {
 	#:remove html tags from data.borrowed from webby::::::::::::::::::::::::
