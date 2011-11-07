@@ -17,7 +17,8 @@
 #
 # This is a versatile tcl script that can fetch RSS feed data and keep a 'latest news'
 # cache as well as a database for old news. You can: grab items by index. List items by
-# feed. Fetch feeds. Refresh all feeds. Add/remove feeds. search, etc.
+# feed. Fetch feeds. Refresh all feeds. Add/remove feeds. search, backup db to file,
+# restore db from file, etc.
 # 
 # To use: open tclsh. Do 'source grabrss.tcl'. Then use 'refresh' to update all feeds.
 # commands available: iget, flist, fadd, fdel, search, listfeed, ctrim, fetch,
@@ -136,11 +137,8 @@ proc cflush {} {
 			#:move items from cache to db::::::::::::::::::::
 			if {![info exists cachetitles($item,$cindex)]} {set cindex 1; break}
 			set dbtitles($item,$dbindex($item)) $cachetitles($item,$cindex)
-			unset cachetitles($item,$cindex)
 			set dblinks($item,$dbindex($item)) $cachelinks($item,$cindex)
-			unset cachelinks($item,$cindex)
 			set dbdescs($item,$dbindex($item)) $cachedescs($item,$cindex)
-			unset cachedescs($item,$cindex)
 			incr dbindex($item)
 			incr cindex
 		}	
@@ -500,5 +498,3 @@ proc htmldecode {{data ""}} {
 	return $data
 }
 puts "grabrss by lee8oi - loaded"
-restoredb
-refresh
