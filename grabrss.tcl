@@ -53,24 +53,23 @@ set feeds(pclosforum) "http://www.pclinuxos.com/forum/index.php?board=15.0;type=
 package require http
 if {![catch {package require tls}]} { ::http::register https 443 ::tls::socket }
 
-
 proc grab {} {
 	#:just a quick command for sourcing the script file:::::::::::::::::::::
 	source "grabrss.tcl"
 }
 
 proc help {args} {
-	puts "~grabrss commands available: iget fadd fdel flist listfeed search ctrim fetch"
-	puts "run command without args for more information on it."
+	puts "~grabrss commands available: iget fadd fdel flist listfeed search ctrim cflush fetch dbackup drestore"
+	puts "~run command without args for more information on it."
 }
 
 proc refresh {args} {
 	#:refresh feeds:::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 	variable feeds
-	puts "refreshing feeds"
 	foreach feed [array names feeds] {
 		fetch $feed; ctrim $feed
 	}
+	puts "~feeds refreshed."
 }
 
 proc flist {args} {
@@ -79,7 +78,7 @@ proc flist {args} {
 	foreach item [array names feeds] {
 		append result "$item "
 	}
-	puts "Available feeds: $result"
+	puts "~available feeds: $result"
 }
 
 proc fadd {{feed ""} {url ""}} {
@@ -88,9 +87,9 @@ proc fadd {{feed ""} {url ""}} {
 	variable feeds
 	if {![info exists feeds($feed)]} {
 		set feeds($feed) $url
-		puts "$feed feed added."
+		puts "~$feed feed added."
 	} else {
-		puts "use a different name."
+		puts "~use a different name."
 	}
 }
 
@@ -100,9 +99,9 @@ proc fdel {{feed ""}} {
 	variable feeds
 	if {[info exists feeds($feed)]} {
 		unset feeds($feed)
-		puts "$feed feed deleted."
+		puts "~$feed feed deleted."
 	} else {
-		puts "feed doesn't exist."
+		puts "~feed doesn't exist."
 	}
 }
 
@@ -110,7 +109,7 @@ proc drestore {} {
 	#:restore news from db::::::::::::::::::::::::::::::::::::::::::::::::::
 	if {[file exists "grabrss.db"]} {
 		source "grabrss.db"
-		puts "backup restored."
+		puts "~backup restored."
 	}
 }
 
@@ -124,7 +123,36 @@ proc dbackup {} {
 		puts $fs "array set $arr [list [array get [set arr]]]"
 	}
 	close $fs;
-	puts "backup performed."
+	puts "~backup performed."
+}
+
+proc iget {{src ""} {feed ""} {index ""}} {
+	#:output news item stored in cache at <feed> <index>::::::::::::::::::::
+	if {($feed == "") || ($index == "") || ($src == "")} {puts "~get item from src(db or cache) in feed at index. usage: iget <source> <feed> <index>"; return}
+	switch "$src" {
+		"db" {
+			variable dblinks; variable dbtitles; variable dbindex; variable dbdescs
+			array set tmplinks [array get dblinks]; array set tmptitles [array get dbtitles]
+			array set tmpindex [array get dbindex]; array set tmpdescs [array get dbdescs]
+		}
+		"cache" {
+			variable cachetitles; variable cachelinks; variable cachedescs; variable cacheindex
+			array set tmplinks [array get cachelinks]; array set tmptitles [array get cachetitles]
+			 array set tmpdescs [array get cachedescs]; array set tmpindex [array get cacheindex];
+		}
+		default {
+			puts "specify a valid src. Options: db or cache."
+			return
+		}
+	}
+	if {[info exists tmptitles($feed,$index)]} {
+		puts "Title ~ $tmptitles($feed,$index)"
+		puts "Link ~ $tmplinks($feed,$index)"
+		set desc [htmldecode $tmpdescs($feed,$index)]
+		puts "Description ~ $desc"
+	} else {
+		puts "cannot find that news item."
+	}
 }
 
 proc cflush {} {
@@ -157,35 +185,6 @@ proc cflush {} {
 		}
 	}
 	puts "~cache~flushed $count items to db."
-}
-
-proc iget {{src ""} {feed ""} {index ""}} {
-	#:output news item stored in cache at <feed> <index>::::::::::::::::::::
-	if {($feed == "") || ($index == "") || ($src == "")} {puts "~get item from src(db or cache) in feed at index. usage: iget <source> <feed> <index>"; return}
-	switch "$src" {
-		"db" {
-			variable dblinks; variable dbtitles; variable dbindex; variable dbdescs
-			array set tmplinks [array get dblinks]; array set tmptitles [array get dbtitles]
-			array set tmpindex [array get dbindex]; array set tmpdescs [array get dbdescs]
-		}
-		"cache" {
-			variable cachetitles; variable cachelinks; variable cachedescs; variable cacheindex
-			array set tmplinks [array get cachelinks]; array set tmptitles [array get cachetitles]
-			 array set tmpdescs [array get cachedescs]; array set tmpindex [array get cacheindex];
-		}
-		default {
-			puts "specify a valid src. Options: db or cache."
-			return
-		}
-	}
-	if {[info exists tmptitles($feed,$index)]} {
-		puts "Title ~ $tmptitles($feed,$index)"
-		puts "Link ~ $tmplinks($feed,$index)"
-		set desc [htmldecode $tmpdescs($feed,$index)]
-		puts "Description ~ $desc"
-	} else {
-		puts "cannot find that news item."
-	}
 }
 
 proc search {{src ""} {field ""} {term ""}} {
