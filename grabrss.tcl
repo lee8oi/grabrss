@@ -12,6 +12,7 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 # http://www.gnu.org/licenses/
+#
 ################################################################################
 #
 # This is a versatile tcl script that can fetch RSS feed data and keep a 'latest news'
@@ -64,6 +65,15 @@ proc refresh {args} {
 	}
 }
 
+proc flist {args} {
+	#:get list of feeds available:::::::::::::::::::::::::::::::::::::::::::
+	variable feeds; set result ""
+	foreach item [array names feeds] {
+		append result "$item "
+	}
+	puts "Available feeds: $result"
+}
+
 proc fadd {{feed ""} {url ""}} {
 	#:add a feed to the feeds list::::::::::::::::::::::::::::::::::::::::::
 	if {($feed == "") || ($url == "")} {puts "~add an rss feed to feeds list. usage: fadd <feedname> <url>"; return}
@@ -86,15 +96,6 @@ proc fdel {{feed ""}} {
 	} else {
 		puts "feed doesn't exist."
 	}
-}
-
-proc flist {args} {
-	#:get list of feeds available:::::::::::::::::::::::::::::::::::::::::::
-	variable feeds; set result ""
-	foreach item [array names feeds] {
-		append result "$item "
-	}
-	puts "Available feeds: $result"
 }
 
 proc iget {{src ""} {feed ""} {index ""}} {
@@ -128,8 +129,8 @@ proc iget {{src ""} {feed ""} {index ""}} {
 
 proc search {{src ""} {field ""} {term ""}} {
 	#:search for items containing term:::::::::::::::::::::::::::::::
-	if {($term == "") || ($field == "") || ($src == "")} {puts "~search by field(title,link,desc) in \
-		src(db or cache) for news items containing term. usage: search <source> <field> <term>"; return}
+	if {($term == "") || ($field == "") || ($src == "")} {puts "~search by field(title,link,desc,all) in \
+		src(db,cache,all) for news items containing term. usage: search <source> <field> <term>"; return}
 	switch "$src" {
 		"db" {
 			variable dblinks; variable dbtitles; variable dbindex; variable dbdescs
@@ -144,6 +145,7 @@ proc search {{src ""} {field ""} {term ""}} {
 		"all" {
 			search "db" $field $term
 			search "cache" $field $term
+			return
 		}
 		default {
 			puts "specify a valid src. Options: db or cache."
@@ -180,6 +182,7 @@ proc search {{src ""} {field ""} {term ""}} {
 			search $src "title" $term
 			search $src "link" $term
 			search $src "desc" $term
+			return
 		}
 		default {
 			puts "invalid field option. use: title link desc or all."
@@ -189,7 +192,7 @@ proc search {{src ""} {field ""} {term ""}} {
 
 proc listfeed {{src ""} {feed ""}} {
 	#:list feed elements from cache or db:::::::::::::::::::::::::::::::::::
-	if {($feed == "") || ($src == "")} {puts "~list items in feed from src(db or cache). usage: listfeed <source> <feed>"; return}
+	if {($feed == "") || ($src == "")} {puts "~list items in feed from src(db,cache,all). usage: listfeed <source> <feed>"; return}
 	switch "$src" {
 		"db" {
 			variable dblinks; variable dbtitles; #variable dbindex; variable dbdescs
@@ -201,8 +204,12 @@ proc listfeed {{src ""} {feed ""}} {
 			array set tmplinks [array get cachelinks]; array set tmptitles [array get cachetitles]
 			 #array set tmpdescs [array get cachedescs]; array set tmpindex [array get cacheindex];
 		}
+		"all" {
+			listfeed "db" $feed
+			listfeed "cache" $feed
+		}
 		default {
-			puts "specify a valid src. Options: db or cache."
+			puts "specify a valid src. Options: db, cache, or all."
 			return
 		}
 	}
@@ -213,7 +220,7 @@ proc listfeed {{src ""} {feed ""}} {
 			set contin 1; set count 1
 			while {($count > 0)} {
 				if {[info exists tmptitles($item,$count)]} {
-					puts "~$item,$count ~ $tmptitles($item,$count) ~ $tmplinks($item,$count)"
+					puts "~$src~$item,$count ~ $tmptitles($item,$count) ~ $tmplinks($item,$count)"
 					incr count
 				} else {
 					set contin 0
@@ -224,7 +231,7 @@ proc listfeed {{src ""} {feed ""}} {
 		set contin 1; set count 1
 		while {($contin > 0)} {
 			if {[info exists tmptitles($feed,$count)]} {
-				puts "~$feed,$count ~ $tmptitles($feed,$count) ~ $tmplinks($feed,$count)"
+				puts "~$src~$feed,$count ~ $tmptitles($feed,$count) ~ $tmplinks($feed,$count)"
 				incr count
 			} else {
 				set contin 0
