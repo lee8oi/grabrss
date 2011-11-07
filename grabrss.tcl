@@ -17,7 +17,7 @@
 #
 # This is a versatile tcl script that can fetch RSS feed data and keep a 'latest news'
 # cache as well as a database for old news. You can: grab items by index. List items by
-# feed. Fetch feeds. Refresh all feeds. Add/remove feeds. search, backup db to file,
+# feed. Fetch feeds. Refresh all feeds. Add/remove feeds. search items, backup db to file,
 # restore db from file, etc.
 # 
 # To use: open tclsh. Do 'source grabrss.tcl'. Then use 'refresh' to update all feeds.
@@ -36,16 +36,6 @@
 #                      +---+
 variable maxcache	20
 #                      +---+
-#
-# feeds: set feeds here. One per set.
-#                 +------------------------------------------------------------+
-set feeds(google) "http://news.google.com/news?ned=us&topic=h&output=rss"
-set feeds(linuxtoday) "http://feeds.feedburner.com/linuxtoday/linux?format=xml"
-set feeds(pclinuxos) "http://pclinuxos.com/?feed=rss2"
-set feeds(securitynow) "http://leoville.tv/podcasts/sn.xml"
-set feeds(krotkie) "http://www.joemonster.org/backend.php?channel=krotkie"
-set feeds(pclosforum) "http://www.pclinuxos.com/forum/index.php?board=15.0;type=rss;action=.xml;limit=50"
-#                 +------------------------------------------------------------+
 #
 ################################################################################
 #!!!!!!!!!!!!!!!!!!!Experts Only Below!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!#
@@ -131,9 +121,9 @@ proc drestore {} {
 proc dbackup {} {
 	#:backup db to file:::::::::::::::::::::::::::::::::::::::::::::::::::::
 	variable dblinks; variable dbtitles; variable dbdescs; variable dbindex
-	cflush
+	variable feeds; cflush
 	set fs [open "grabrss.db" w+]
-	foreach arr {dbtitles dblinks dbdescs dbindex} {
+	foreach arr {dbtitles dblinks dbdescs dbindex feeds} {
 		puts $fs "variable $arr"
 		puts $fs "array set $arr [list [array get [set arr]]]"
 	}
@@ -533,4 +523,5 @@ proc htmldecode {{data ""}} {
 	set data [subst "$data"]
 	return $data
 }
+drestore
 print puts "grabrss by lee8oi - loaded"
