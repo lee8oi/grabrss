@@ -64,19 +64,6 @@ proc help {args} {
 	print help "run command without args for more information on it."
 }
 
-proc print {{type ""} {msg ""}} {
-	#:print msg to output:::::::::::::::::::::::::::::::::::::::::::::::::::
-	if {($type == "") || ($msg == "")} {print help "~print a msg to output. usage: print <type> <msg>"; return}
-	switch "$type" {
-		"puts" {
-			puts $msg
-		}
-		"help" {
-			puts "~help: $msg"
-		}
-	}
-}
-
 proc refresh {args} {
 	#:refresh feeds:::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 	variable feeds
@@ -93,6 +80,19 @@ proc flist {args} {
 		append result "$item "
 	}
 	print puts "~available feeds: $result"
+}
+
+proc print {{type ""} {msg ""}} {
+	#:print msg to output:::::::::::::::::::::::::::::::::::::::::::::::::::
+	if {($type == "") || ($msg == "")} {print help "~print a msg to output. usage: print <type> <msg>"; return}
+	switch "$type" {
+		"puts" {
+			puts $msg
+		}
+		"help" {
+			puts "~help: $msg"
+		}
+	}
 }
 
 proc fadd {{feed ""} {url ""}} {
@@ -177,7 +177,6 @@ proc iadd {{feed ""} {title ""} {link ""} {desc ""}} {
 	variable source; variable cachetitles; variable cachelinks; variable cachedescs
 	variable cacheindex
 	if {![info exists cacheindex($feed)]} {set cacheindex($feed) 1}
-	#if {![info exists cacheindex($feed)]} {print puts "~iadd~ feed doesn't exist."; return}
 	set ismatch 0
 	#:check if title already exists:::::::::::::::::::::::::::::::::::::::::
 	foreach item [array names cachetitles] {
