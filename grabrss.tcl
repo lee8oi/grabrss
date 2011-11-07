@@ -64,35 +64,6 @@ proc refresh {args} {
 	}
 }
 
-proc iget {{src ""} {feed ""} {index ""}} {
-	#:output news item stored in cache at <feed> <index>::::::::::::::::::::
-	if {($feed == "") || ($index == "") || ($src == "")} {puts "~get item from src(db or cache) in feed at index. usage: iget <source> <feed> <index>"; return}
-	switch "$src" {
-		"db" {
-			variable dblinks; variable dbtitles; variable dbindex; variable dbdescs
-			array set tmplinks [array get dblinks]; array set tmptitles [array get dbtitles]
-			array set tmpindex [array get dbindex]; array set tmpdescs [array get dbdescs]
-		}
-		"cache" {
-			variable cachetitles; variable cachelinks; variable cachedescs; variable cacheindex
-			array set tmplinks [array get cachelinks]; array set tmptitles [array get cachetitles]
-			 array set tmpdescs [array get cachedescs]; array set tmpindex [array get cacheindex];
-		}
-		default {
-			puts "specify a valid src. Options: db or cache."
-			return
-		}
-	}
-	if {[info exists tmptitles($feed,$index)]} {
-		puts "Title ~ $tmptitles($feed,$index)"
-		puts "Link ~ $tmplinks($feed,$index)"
-		set desc [htmldecode $tmpdescs($feed,$index)]
-		puts "Description ~ $desc"
-	} else {
-		puts "cannot find that news item."
-	}
-}
-
 proc fadd {{feed ""} {url ""}} {
 	#:add a feed to the feeds list::::::::::::::::::::::::::::::::::::::::::
 	if {($feed == "") || ($url == "")} {puts "~add an rss feed to feeds list. usage: fadd <feedname> <url>"; return}
@@ -126,19 +97,53 @@ proc flist {args} {
 	puts "Available feeds: $result"
 }
 
-proc search {{src ""} {term ""}} {
-	#:search for items containing term:::::::::::::::::::::::::::::::
-	if {($term == "") || ($src == "")} {puts "~search for items from src(db or cache) containing term. usage: search <source> <term>"; return}
+proc iget {{src ""} {feed ""} {index ""}} {
+	#:output news item stored in cache at <feed> <index>::::::::::::::::::::
+	if {($feed == "") || ($index == "") || ($src == "")} {puts "~get item from src(db or cache) in feed at index. usage: iget <source> <feed> <index>"; return}
 	switch "$src" {
 		"db" {
-			variable dblinks; variable dbtitles; #variable dbindex; variable dbdescs
+			variable dblinks; variable dbtitles; variable dbindex; variable dbdescs
 			array set tmplinks [array get dblinks]; array set tmptitles [array get dbtitles]
-			#array set tmpindex [array get dbindex]; array set tmpdescs [array get dbdescs]
+			array set tmpindex [array get dbindex]; array set tmpdescs [array get dbdescs]
 		}
 		"cache" {
-			variable cachetitles; variable cachelinks; #variable cachedescs; variable cacheindex
+			variable cachetitles; variable cachelinks; variable cachedescs; variable cacheindex
 			array set tmplinks [array get cachelinks]; array set tmptitles [array get cachetitles]
-			 #array set tmpdescs [array get cachedescs]; array set tmpindex [array get cacheindex];
+			 array set tmpdescs [array get cachedescs]; array set tmpindex [array get cacheindex];
+		}
+		default {
+			puts "specify a valid src. Options: db or cache."
+			return
+		}
+	}
+	if {[info exists tmptitles($feed,$index)]} {
+		puts "Title ~ $tmptitles($feed,$index)"
+		puts "Link ~ $tmplinks($feed,$index)"
+		set desc [htmldecode $tmpdescs($feed,$index)]
+		puts "Description ~ $desc"
+	} else {
+		puts "cannot find that news item."
+	}
+}
+
+proc search {{src ""} {field ""} {term ""}} {
+	#:search for items containing term:::::::::::::::::::::::::::::::
+	if {($term == "") || ($field == "") || ($src == "")} {puts "~search by field(title,link,desc) in \
+		src(db or cache) for news items containing term. usage: search <source> <field> <term>"; return}
+	switch "$src" {
+		"db" {
+			variable dblinks; variable dbtitles; variable dbindex; variable dbdescs
+			array set tmplinks [array get dblinks]; array set tmptitles [array get dbtitles]
+			array set tmpindex [array get dbindex]; array set tmpdescs [array get dbdescs]
+		}
+		"cache" {
+			variable cachetitles; variable cachelinks; variable cachedescs; variable cacheindex
+			array set tmplinks [array get cachelinks]; array set tmptitles [array get cachetitles]
+			 array set tmpdescs [array get cachedescs]; array set tmpindex [array get cacheindex];
+		}
+		"all" {
+			search "db" $field $term
+			search "cache" $field $term
 		}
 		default {
 			puts "specify a valid src. Options: db or cache."
@@ -146,13 +151,40 @@ proc search {{src ""} {term ""}} {
 		}
 	}
 	set count 0
-	foreach item [array names tmptitles] {
-		if {[string match -nocase "*${term}*" $tmptitles($item)]} {
-			incr count
-			puts "match $count: $tmptitles($item) ~ $tmplinks($item)"
+	switch "$field" {
+		"title" {
+			foreach item [array names tmptitles] {
+				if {[string match -nocase "*${term}*" $tmptitles($item)]} {
+					incr count
+					puts "~$src~title~ match $count: $tmptitles($item) ~ $tmplinks($item)"
+				}
+			}
+		}
+		"link" {
+			foreach item [array names tmplinks] {
+				if {[string match -nocase "*${term}*" $tmplinks($item)]} {
+					incr count
+					puts "~$src~link~ match $count: $tmplinks($item) ~ $tmplinks($item)"
+				}
+			}
+		}
+		"desc" {
+			foreach item [array names tmpdescs] {
+				if {[string match -nocase "*${term}*" $tmpdescs($item)]} {
+					incr count
+					puts "~$src~desc~ match $count: $tmpdescs($item) ~ $tmpdescs($item)"
+				}
+			}
+		}
+		"all" {
+			search $src "title" $term
+			search $src "link" $term
+			search $src "desc" $term
+		}
+		default {
+			puts "invalid field option. use: title link desc or all."
 		}
 	}
-	if {($count == 0)} {puts "no results found."}
 }
 
 proc listfeed {{src ""} {feed ""}} {
