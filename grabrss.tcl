@@ -21,7 +21,7 @@
 # restore db from file, etc.
 # 
 # To use: open tclsh. Do 'source grabrss.tcl'. Then use 'refresh' to update all feeds.
-# commands available: iget, flist, fadd, fdel, search, listfeed, ctrim, fetch,
+# commands available: iget, iadd, flist, fadd, fdel, search, listfeed, ctrim, fetch,
 # dbackup, drestore, cflush, htmldecode, unhtml.
 #  *c=cache f=feed d=database i=item (news item)
 #
@@ -59,7 +59,7 @@ proc grab {} {
 }
 
 proc help {args} {
-	print help "grabrss commands available: iget fadd fdel flist listfeed search\
+	print help "grabrss commands available: iget iadd fadd fdel flist listfeed search\
 	ctrim cflush fetch dbackup drestore unhtml htmldecode"
 	print help "run command without args for more information on it."
 }
@@ -98,9 +98,10 @@ proc flist {args} {
 proc fadd {{feed ""} {url ""}} {
 	#:add a feed to the feeds list::::::::::::::::::::::::::::::::::::::::::
 	if {($feed == "") || ($url == "")} {print help "add an rss feed to feeds list. usage: fadd <feedname> <url>"; return}
-	variable feeds
+	variable feeds; variable cacheindex
 	if {![info exists feeds($feed)]} {
 		set feeds($feed) $url
+		if {![info exists cacheindex($feed)]} {set cacheindex($feed) 1}
 		print puts "~$feed feed added."
 	} else {
 		print puts "~use a different name."
@@ -166,6 +167,38 @@ proc iget {{src ""} {feed ""} {index ""}} {
 		print puts "Description ~ $desc"
 	} else {
 		print puts "cannot find that news item."
+	}
+}
+
+proc iadd {{feed ""} {title ""} {link ""} {desc ""}} {
+	#:add news item to cache::::::::::::::::::::::::::::::::::::::::::::::::
+	if {($title == "") || ($link == "") || ($desc == "")} {print help "add news item to cache in feed. usage:\
+		iadd <feed> <title> <link> <desc>"; return}
+	variable source; variable cachetitles; variable cachelinks; variable cachedescs
+	variable cacheindex
+	if {![info exists cacheindex($feed)]} {set cacheindex($feed) 1}
+	#if {![info exists cacheindex($feed)]} {print puts "~iadd~ feed doesn't exist."; return}
+	set ismatch 0
+	#:check if title already exists:::::::::::::::::::::::::::::::::::::::::
+	foreach item [array names cachetitles] {
+		#:check cache titles::::::::::::::::::::::::::::
+		if {($cachetitles($item) == $title)} {
+			set ismatch 1
+		}
+	}
+	foreach item [array names dbtitles] {
+		#:check database titles:::::::::::::::::::::::::
+		if {($dbtitles($item) == $title)} {
+			set ismatch 1
+		}
+	}
+	#:add news if no match found::::::::::::::::::::::::::::
+	if {$ismatch == 0} {
+		set cachetitles($feed,$cacheindex($feed)) $title
+		set cachelinks($feed,$cacheindex($feed)) $link
+		set cachedescs($feed,$cacheindex($feed)) $desc
+		print puts "~Breaking News~ $feed ~ $cachetitles($feed,$cacheindex($feed)) ~ $cachelinks($feed,$cacheindex($feed))"
+		incr cacheindex($feed)
 	}
 }
 
@@ -391,9 +424,6 @@ proc fetch {{feed ""}} {
 			}
 		}
 		::http::cleanup $http
-		variable source; variable cachetitles; variable cachelinks; variable cachedescs
-		variable cacheindex; variable dbindex; variable dbtitles; variable dblinks; variable dbdescs
-		if {![info exists cacheindex($feed)]} {set cacheindex($feed) 1}
 		set data [htmldecode $data] ;#:markup code cleanup::::::::::::::
 		if {[regexp {(?i)<title>(.*?)</title>} $data -> foo]} {
 			append source($feed) $foo
@@ -412,29 +442,7 @@ proc fetch {{feed ""}} {
 			if {![info exists title]} {set title "(none)"} {set title [unhtml [join [split $title]]]}
 			if {![info exists link]}  {set link  "(none)"} {set link [unhtml [join [split $link]]]}
 			if {![info exists descr]} {set descr "(none)"} {set descr [unhtml [join [split $descr]]]}
-			#:check if title already exists:::::::::::::::::::::::::
-			set ismatch 0
-			foreach item [array names cachetitles] {
-				#:check cache titles::::::::::::::::::::::::::::
-				if {($cachetitles($item) == $title)} {
-					set ismatch 1
-				}
-			}
-			foreach item [array names dbtitles] {
-				#:check database titles:::::::::::::::::::::::::
-				if {($dbtitles($item) == $title)} {
-					set ismatch 1
-				}
-			}
-			#:add news if no match found::::::::::::::::::::::::::::
-			if {$ismatch == 0} {
-				set cachetitles($feed,$cacheindex($feed)) $title
-				set cachelinks($feed,$cacheindex($feed)) $link
-				set cachedescs($feed,$cacheindex($feed)) $descr
-				print puts "Breaking News ~ $feed ~ $cachetitles($feed,$cacheindex($feed)) ~ $cachelinks($feed,$cacheindex($feed))"
-				incr cacheindex($feed)
-			}
-			set match 0
+			iadd $feed $title $link $descr
 		}
 		return
 	} else {
