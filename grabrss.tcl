@@ -59,8 +59,22 @@ proc grab {} {
 }
 
 proc help {args} {
-	puts "~grabrss commands available: iget fadd fdel flist listfeed search ctrim cflush fetch dbackup drestore"
-	puts "~run command without args for more information on it."
+	print help "grabrss commands available: iget fadd fdel flist listfeed search\
+	ctrim cflush fetch dbackup drestore unhtml htmldecode"
+	print help "run command without args for more information on it."
+}
+
+proc print {{type ""} {msg ""}} {
+	#:print msg to output:::::::::::::::::::::::::::::::::::::::::::::::::::
+	if {($type == "") || ($msg == "")} {print help "~print a msg to output. usage: print <type> <msg>"; return}
+	switch "$type" {
+		"puts" {
+			puts $msg
+		}
+		"help" {
+			puts "~help: $msg"
+		}
+	}
 }
 
 proc refresh {args} {
@@ -69,7 +83,7 @@ proc refresh {args} {
 	foreach feed [array names feeds] {
 		fetch $feed; ctrim $feed
 	}
-	puts "~feeds refreshed."
+	print puts "~feeds refreshed."
 }
 
 proc flist {args} {
@@ -78,30 +92,30 @@ proc flist {args} {
 	foreach item [array names feeds] {
 		append result "$item "
 	}
-	puts "~available feeds: $result"
+	print puts "~available feeds: $result"
 }
 
 proc fadd {{feed ""} {url ""}} {
 	#:add a feed to the feeds list::::::::::::::::::::::::::::::::::::::::::
-	if {($feed == "") || ($url == "")} {puts "~add an rss feed to feeds list. usage: fadd <feedname> <url>"; return}
+	if {($feed == "") || ($url == "")} {print help "add an rss feed to feeds list. usage: fadd <feedname> <url>"; return}
 	variable feeds
 	if {![info exists feeds($feed)]} {
 		set feeds($feed) $url
-		puts "~$feed feed added."
+		print puts "~$feed feed added."
 	} else {
-		puts "~use a different name."
+		print puts "~use a different name."
 	}
 }
 
 proc fdel {{feed ""}} {
 	#:remove a feed from the feedss list::::::::::::::::::::::::::::::::::::
-	if {($feed == "")} {puts "~delete an rss feed from feeds list. usage: fdel <feed> <url>"; return}
+	if {($feed == "")} {print help "delete an rss feed from feeds list. usage: fdel <feed> <url>"; return}
 	variable feeds
 	if {[info exists feeds($feed)]} {
 		unset feeds($feed)
-		puts "~$feed feed deleted."
+		print puts "~$feed feed deleted."
 	} else {
-		puts "~feed doesn't exist."
+		print puts "~feed doesn't exist."
 	}
 }
 
@@ -109,7 +123,7 @@ proc drestore {} {
 	#:restore news from db::::::::::::::::::::::::::::::::::::::::::::::::::
 	if {[file exists "grabrss.db"]} {
 		source "grabrss.db"
-		puts "~backup restored."
+		print puts "~backup restored."
 	}
 }
 
@@ -123,12 +137,12 @@ proc dbackup {} {
 		puts $fs "array set $arr [list [array get [set arr]]]"
 	}
 	close $fs;
-	puts "~backup performed."
+	print puts "~backup performed."
 }
 
 proc iget {{src ""} {feed ""} {index ""}} {
 	#:output news item stored in cache at <feed> <index>::::::::::::::::::::
-	if {($feed == "") || ($index == "") || ($src == "")} {puts "~get item from src(db or cache) in feed at index. usage: iget <source> <feed> <index>"; return}
+	if {($feed == "") || ($index == "") || ($src == "")} {print help "get item from src(db or cache) in feed at index. usage: iget <source> <feed> <index>"; return}
 	switch "$src" {
 		"db" {
 			variable dblinks; variable dbtitles; variable dbindex; variable dbdescs
@@ -141,17 +155,17 @@ proc iget {{src ""} {feed ""} {index ""}} {
 			 array set tmpdescs [array get cachedescs]; array set tmpindex [array get cacheindex];
 		}
 		default {
-			puts "specify a valid src. Options: db or cache."
+			print puts "specify a valid src. Options: db or cache."
 			return
 		}
 	}
 	if {[info exists tmptitles($feed,$index)]} {
-		puts "Title ~ $tmptitles($feed,$index)"
-		puts "Link ~ $tmplinks($feed,$index)"
+		print puts "Title ~ $tmptitles($feed,$index)"
+		print puts "Link ~ $tmplinks($feed,$index)"
 		set desc [htmldecode $tmpdescs($feed,$index)]
-		puts "Description ~ $desc"
+		print puts "Description ~ $desc"
 	} else {
-		puts "cannot find that news item."
+		print puts "cannot find that news item."
 	}
 }
 
@@ -184,12 +198,14 @@ proc cflush {} {
 			incr cindex
 		}
 	}
-	puts "~cache~flushed $count items to db."
+	if {($count > 0)} {
+		print puts "~cache~flushed $count items to db."
+	}
 }
 
 proc search {{src ""} {field ""} {term ""}} {
 	#:search for items containing term:::::::::::::::::::::::::::::::
-	if {($term == "") || ($field == "") || ($src == "")} {puts "~search by field(title,link,desc,all) in \
+	if {($term == "") || ($field == "") || ($src == "")} {print help "search by field(title,link,desc,all) in \
 		src(db,cache,all) for news items containing term. usage: search <source> <field> <term>"; return}
 	switch "$src" {
 		"db" {
@@ -208,7 +224,7 @@ proc search {{src ""} {field ""} {term ""}} {
 			return
 		}
 		default {
-			puts "specify a valid src. Options: db or cache."
+			print puts "specify a valid src. Options: db or cache."
 			return
 		}
 	}
@@ -218,7 +234,7 @@ proc search {{src ""} {field ""} {term ""}} {
 			foreach item [array names tmptitles] {
 				if {[string match -nocase "*${term}*" $tmptitles($item)]} {
 					incr count
-					puts "~$src~title~ match $count: $tmptitles($item) ~ $tmplinks($item)"
+					print puts "~$src~title~ match $count: $tmptitles($item) ~ $tmplinks($item)"
 				}
 			}
 		}
@@ -226,7 +242,7 @@ proc search {{src ""} {field ""} {term ""}} {
 			foreach item [array names tmplinks] {
 				if {[string match -nocase "*${term}*" $tmplinks($item)]} {
 					incr count
-					puts "~$src~link~ match $count: $tmplinks($item) ~ $tmplinks($item)"
+					print puts "~$src~link~ match $count: $tmplinks($item) ~ $tmplinks($item)"
 				}
 			}
 		}
@@ -234,7 +250,7 @@ proc search {{src ""} {field ""} {term ""}} {
 			foreach item [array names tmpdescs] {
 				if {[string match -nocase "*${term}*" $tmpdescs($item)]} {
 					incr count
-					puts "~$src~desc~ match $count: $tmpdescs($item) ~ $tmpdescs($item)"
+					print puts "~$src~desc~ match $count: $tmpdescs($item) ~ $tmpdescs($item)"
 				}
 			}
 		}
@@ -245,14 +261,14 @@ proc search {{src ""} {field ""} {term ""}} {
 			return
 		}
 		default {
-			puts "invalid field option. use: title link desc or all."
+			print puts "invalid field option. use: title link desc or all."
 		}
 	}
 }
 
 proc listfeed {{src ""} {feed ""}} {
 	#:list feed elements from cache or db:::::::::::::::::::::::::::::::::::
-	if {($feed == "") || ($src == "")} {puts "~list items in feed from src(db,cache,all). usage: listfeed <source> <feed>"; return}
+	if {($feed == "") || ($src == "")} {print help "list items in feed from src(db,cache,all). usage: listfeed <source> <feed>"; return}
 	switch "$src" {
 		"db" {
 			variable dblinks; variable dbtitles; #variable dbindex; variable dbdescs
@@ -270,7 +286,7 @@ proc listfeed {{src ""} {feed ""}} {
 			return
 		}
 		default {
-			puts "specify a valid src. Options: db, cache, or all."
+			print puts "specify a valid src. Options: db, cache, or all."
 			return
 		}
 	}
@@ -281,7 +297,7 @@ proc listfeed {{src ""} {feed ""}} {
 			set contin 1; set count 1
 			while {($count > 0)} {
 				if {[info exists tmptitles($item,$count)]} {
-					puts "~$src~$item,$count ~ $tmptitles($item,$count) ~ $tmplinks($item,$count)"
+					print puts "~$src~$item,$count ~ $tmptitles($item,$count) ~ $tmplinks($item,$count)"
 					incr count
 				} else {
 					set contin 0
@@ -292,7 +308,7 @@ proc listfeed {{src ""} {feed ""}} {
 		set contin 1; set count 1
 		while {($contin > 0)} {
 			if {[info exists tmptitles($feed,$count)]} {
-				puts "~$src~$feed,$count ~ $tmptitles($feed,$count) ~ $tmplinks($feed,$count)"
+				print puts "~$src~$feed,$count ~ $tmptitles($feed,$count) ~ $tmplinks($feed,$count)"
 				incr count
 			} else {
 				set contin 0
@@ -303,7 +319,7 @@ proc listfeed {{src ""} {feed ""}} {
 
 proc ctrim {{feed ""}} {
 	#:trim cache to maxcache::::::::::::::::::::::::::::::::::::::::::::::::
-	if {($feed == "")} {puts "~trim feed to 'maxcache' size and store trimmed items in database. usage: ctrim <feed>"; return}
+	if {($feed == "")} {print help "trim feed to 'maxcache' size and store trimmed items in database. usage: ctrim <feed>"; return}
 	variable dbindex; variable dbtitles; variable dblinks; variable dbdescs
 	variable cachetitles; variable cachelinks; variable cachedescs; variable cacheindex
 	variable maxcache
@@ -341,7 +357,7 @@ proc ctrim {{feed ""}} {
 
 proc fetch {{feed ""}} {
 	#:fetch feed data and save news to cache::::::::::::::::::::::::::::::::
-	if {($feed == "")} {puts "~fetch rss data from web and add new news to cache. usage: fetch <feed>"; return}
+	if {($feed == "")} {print help "fetch rss data from web and add new news to cache. usage: fetch <feed>"; return}
 	variable feeds
 	if {[info exists feeds($feed)]} {set url $feeds($feed)} else {puts "invalid feed. check 'flist'?"; return}
 	set ua "Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.9.0.5) Gecko/2008120122 Firefox/3.0.5"
@@ -415,7 +431,7 @@ proc fetch {{feed ""}} {
 				set cachetitles($feed,$cacheindex($feed)) $title
 				set cachelinks($feed,$cacheindex($feed)) $link
 				set cachedescs($feed,$cacheindex($feed)) $descr
-				puts "Breaking News ~ $feed ~ $cachetitles($feed,$cacheindex($feed)) ~ $cachelinks($feed,$cacheindex($feed))"
+				print puts "Breaking News ~ $feed ~ $cachetitles($feed,$cacheindex($feed)) ~ $cachelinks($feed,$cacheindex($feed))"
 				incr cacheindex($feed)
 			}
 			set match 0
@@ -429,7 +445,7 @@ proc fetch {{feed ""}} {
 
 proc unhtml {{data ""}} {
 	#:remove html tags from data.borrowed from webby::::::::::::::::::::::::
-	if {($data == "")} {puts "remove html tags from data. usage: unhtml <data>"; return}
+	if {($data == "")} {print puts "remove html tags from data. usage: unhtml <data>"; return}
 	regsub -all "(?:<b>|</b>|<b />|<em>|</em>|<strong>|</strong>)" $data"\002" data
 	regsub -all "(?:<u>|</u>|<u />)" $data "\037" data
 	regsub -all "(?:<br>|<br/>|<br />)" $data ". " data
@@ -442,7 +458,7 @@ proc unhtml {{data ""}} {
 
 proc htmldecode {{data ""}} {
 	#:cleanup html markups.borrowed from webby::::::::::::::::::::::::::::::
-	if {($data == "")} {puts "remove html markup codes from data. usage: htmldecode <data>"; return}
+	if {($data == "")} {print help "remove html markup codes from data. usage: htmldecode <data>"; return}
 	if {![string match *&* $data]} {return $data}
 	set escapes {
                &nbsp; \xa0 &iexcl; \xa1 &cent; \xa2 &pound; \xa3 &curren; \xa4
@@ -503,10 +519,11 @@ proc htmldecode {{data ""}} {
 	};
 	#:clean up markup codes,etc:::::::::::::::::::::::::::::::::::::::::::::
 	set data [string map [list "\]" "\\\]" "\[" "\\\[" "\$" "\\\$" "\\" "\\\\"] [string map $escapes $data]]
+	set data [string map {"&raquo;" "»" "&nbsp;" " "} $data] ;#escapes map misses these.fixme.
 	regsub -all -- {&#([[:digit:]]{1,5});} $data {[format %c [string trimleft "\1" "0"]]} data
 	regsub -all -- {&#x([[:xdigit:]]{1,4});} $data {[format %c [scan "\1" %x]]} data
 	regsub -all -- {\\x([[:xdigit:]]{1,2})} $data {[format %c [scan "\1" %x]]} data
 	set data [subst "$data"]
 	return $data
 }
-puts "grabrss by lee8oi - loaded"
+print puts "grabrss by lee8oi - loaded"
