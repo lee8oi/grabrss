@@ -20,8 +20,14 @@
 # feed. Fetch feeds. Refresh all feeds. Add/remove feeds. search, etc.
 # 
 # To use: open tclsh. Do 'source grabrss.tcl'. Then use 'refresh' to update all feeds.
-# commands available: iget, flist, fadd, fdel, search, listfeed, ctrim, fetch.
+# commands available: iget, flist, fadd, fdel, search, listfeed, ctrim, fetch,
+# htmldecode, unhtml.
 #  *c=cache f=feed d=database i=item (news item)
+#
+# Todo:
+# 1.allow item and feed deletion (stored data).
+# 2.allow item creation.
+# 3.allow backup/restore to/from file.
 #
 #:::::::::::::::::::::::::::Configuration:::::::::::::::::::::::::::::::::::::::
 #
@@ -47,7 +53,9 @@ set feeds(pclosforum) "http://www.pclinuxos.com/forum/index.php?board=15.0;type=
 package require http
 if {![catch {package require tls}]} { ::http::register https 443 ::tls::socket }
 
+
 proc grab {} {
+	#:just a quick command for sourcing the script file:::::::::::::::::::::
 	source "grabrss.tcl"
 }
 
@@ -96,6 +104,46 @@ proc fdel {{feed ""}} {
 	} else {
 		puts "feed doesn't exist."
 	}
+}
+
+proc restoredb {} {
+	#:restore news from db::::::::::::::::::::::::::::::::::::::::::::::::::
+	if {[file exists "grabrss.db"]} {
+		source "grabrss.db"
+		puts "backup restored."
+	}
+}
+
+proc backupdb {} {
+	#:backup db to file:::::::::::::::::::::::::::::::::::::::::::::::::::::
+	variable dblinks; variable dbtitles; variable dbdescs; variable dbindex
+	cflush
+	set fs [open "grabrss.db" w+]
+	foreach arr {dbtitles dblinks dbdescs dbindex} {
+		puts $fs "variable $arr"
+		puts $fs "array set $arr [list [array get [set arr]]]"
+	}
+	close $fs;
+	puts "backup performed."
+}
+
+proc cflush {} {
+	#:flush cache to db:::::::::::::::::::::::::::::::::::::::::::::::::::::
+	variable dbindex; variable dbtitles; variable dblinks; variable dbdescs
+	variable cachetitles; variable cachelinks; variable cachedescs; variable cacheindex
+	set cindex 1
+	foreach item [array names cacheindex] {
+		while {($cindex > 0)} {
+			#:move oldest items from cache to db::::::::::::::::::::
+			if {![info exists cachetitles($item,$cindex)]} {set cindex 1; break}
+			set dbtitles($item,$dbindex($item)) $cachetitles($item,$cindex)
+			set dblinks($item,$dbindex($item)) $cachelinks($item,$cindex)
+			set dbdescs($item,$dbindex($item)) $cachedescs($item,$cindex)
+			incr dbindex($item)
+			incr cindex
+		}	
+	}
+	puts "~cache flushed to db."
 }
 
 proc iget {{src ""} {feed ""} {index ""}} {
@@ -207,6 +255,7 @@ proc listfeed {{src ""} {feed ""}} {
 		"all" {
 			listfeed "db" $feed
 			listfeed "cache" $feed
+			return
 		}
 		default {
 			puts "specify a valid src. Options: db, cache, or all."
@@ -449,4 +498,5 @@ proc htmldecode {{data ""}} {
 	return $data
 }
 puts "grabrss by lee8oi - loaded"
+restoredb
 refresh
