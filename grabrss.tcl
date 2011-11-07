@@ -27,7 +27,6 @@
 # Todo:
 # 1.allow item and feed deletion (stored data).
 # 2.allow item creation.
-# 3.allow backup/restore to/from file.
 #
 #:::::::::::::::::::::::::::Configuration:::::::::::::::::::::::::::::::::::::::
 #
@@ -134,11 +133,14 @@ proc cflush {} {
 	set cindex 1
 	foreach item [array names cacheindex] {
 		while {($cindex > 0)} {
-			#:move oldest items from cache to db::::::::::::::::::::
+			#:move items from cache to db::::::::::::::::::::
 			if {![info exists cachetitles($item,$cindex)]} {set cindex 1; break}
 			set dbtitles($item,$dbindex($item)) $cachetitles($item,$cindex)
+			unset cachetitles($item,$cindex)
 			set dblinks($item,$dbindex($item)) $cachelinks($item,$cindex)
+			unset cachelinks($item,$cindex)
 			set dbdescs($item,$dbindex($item)) $cachedescs($item,$cindex)
+			unset cachedescs($item,$cindex)
 			incr dbindex($item)
 			incr cindex
 		}	
@@ -295,7 +297,7 @@ proc ctrim {{feed ""}} {
 	variable dbindex; variable dbtitles; variable dblinks; variable dbdescs
 	variable cachetitles; variable cachelinks; variable cachedescs; variable cacheindex
 	variable maxcache
-	if {![info exists cachetitles($feed,1)]} {puts "no news found for $feed."; return}
+	if {![info exists cachetitles($feed,1)]} {return}
 	if {![info exists dbindex($feed)]} {set dbindex($feed) 1}
 	set count 0
 	foreach item [array names cachetitles "$feed*"] {
