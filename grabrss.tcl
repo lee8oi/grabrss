@@ -16,7 +16,7 @@
 #
 # This is a versatile tcl script that can fetch RSS feed data and keep a 'latest news'
 # cache as well as a database for old news. You can: grab items by index. List items by
-# feed. Fetch feeds. Refresh all feeds. Add/remove feeds. etc.
+# feed. Fetch feeds. Refresh all feeds. Add/remove feeds. search, etc.
 # 
 # To use: open tclsh. Do 'source grabrss.tcl'. Then use 'refresh' to update all feeds.
 # commands available: iget, flist, fadd, fdel, search, listfeed, ctrim, fetch.
@@ -25,6 +25,7 @@
 #:::::::::::::::::::::::::::Configuration:::::::::::::::::::::::::::::::::::::::
 #
 # maxcache: How many news items should each feed have in cache at a time?
+# ctrim trims cache down to this number and puts trimmings in db.
 #                      +---+
 variable maxcache	20
 #                      +---+
@@ -68,24 +69,28 @@ proc iget {{src ""} {feed ""} {index ""}} {
 	if {($feed == "") || ($index == "") || ($src == "")} {puts "~get item from src(db or cache) in feed at index. usage: iget <source> <feed> <index>"; return}
 	switch "$src" {
 		"db" {
-			variable dblinks; variable dbtitles; #variable dbindex; variable dbdescs
+			variable dblinks; variable dbtitles; variable dbindex; variable dbdescs
 			array set tmplinks [array get dblinks]; array set tmptitles [array get dbtitles]
-			#array set tmpindex [array get dbindex]; array set tmpdescs [array get dbdescs]
+			array set tmpindex [array get dbindex]; array set tmpdescs [array get dbdescs]
 		}
 		"cache" {
-			variable cachetitles; variable cachelinks; #variable cachedescs; variable cacheindex
+			variable cachetitles; variable cachelinks; variable cachedescs; variable cacheindex
 			array set tmplinks [array get cachelinks]; array set tmptitles [array get cachetitles]
-			 #array set tmpdescs [array get cachedescs]; array set tmpindex [array get cacheindex];
+			 array set tmpdescs [array get cachedescs]; array set tmpindex [array get cacheindex];
 		}
 		default {
 			puts "specify a valid src. Options: db or cache."
 			return
 		}
 	}
-	puts "Title ~ $tmptitles($feed,$index)"
-	puts "Link ~ $tmplinks($feed,$index)"
-	set desc [htmldecode $tmpdescs($feed,$index)]
-	puts "Description ~ $desc"
+	if {[info exists tmptitles($feed,$index)]} {
+		puts "Title ~ $tmptitles($feed,$index)"
+		puts "Link ~ $tmplinks($feed,$index)"
+		set desc [htmldecode $tmpdescs($feed,$index)]
+		puts "Description ~ $desc"
+	} else {
+		puts "cannot find that news item."
+	}
 }
 
 proc fadd {{feed ""} {url ""}} {
@@ -147,7 +152,7 @@ proc search {{src ""} {term ""}} {
 			puts "match $count: $tmptitles($item) ~ $tmplinks($item)"
 		}
 	}
-	
+	if {($count == 0)} {puts "no results found."}
 }
 
 proc listfeed {{src ""} {feed ""}} {
@@ -193,7 +198,6 @@ proc listfeed {{src ""} {feed ""}} {
 				set contin 0
 			}
 		}
-		
 	}
 }
 
@@ -203,6 +207,7 @@ proc ctrim {{feed ""}} {
 	variable dbindex; variable dbtitles; variable dblinks; variable dbdescs
 	variable cachetitles; variable cachelinks; variable cachedescs; variable cacheindex
 	variable maxcache
+	if {![info exists cachetitles($feed,1)]} {puts "no news found for $feed."; return}
 	if {![info exists dbindex($feed)]} {set dbindex($feed) 1}
 	set count 0
 	foreach item [array names cachetitles "$feed*"] {
@@ -219,7 +224,6 @@ proc ctrim {{feed ""}} {
 			incr dbindex($feed)
 			incr cindex
 			incr count -1
-			
 		}
 		set nindex 1
 		while {($nindex <= $count)} {
