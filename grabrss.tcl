@@ -22,7 +22,7 @@
 # 
 # To use: open tclsh. Do 'source grabrss.tcl'. Then use 'refresh' to update all feeds.
 # commands available: iget, flist, fadd, fdel, search, listfeed, ctrim, fetch,
-# htmldecode, unhtml.
+# dbackup, drestore, cflush, htmldecode, unhtml.
 #  *c=cache f=feed d=database i=item (news item)
 #
 # Todo:
@@ -106,7 +106,7 @@ proc fdel {{feed ""}} {
 	}
 }
 
-proc restoredb {} {
+proc drestore {} {
 	#:restore news from db::::::::::::::::::::::::::::::::::::::::::::::::::
 	if {[file exists "grabrss.db"]} {
 		source "grabrss.db"
@@ -114,7 +114,7 @@ proc restoredb {} {
 	}
 }
 
-proc backupdb {} {
+proc dbackup {} {
 	#:backup db to file:::::::::::::::::::::::::::::::::::::::::::::::::::::
 	variable dblinks; variable dbtitles; variable dbdescs; variable dbindex
 	cflush
@@ -131,19 +131,32 @@ proc cflush {} {
 	#:flush cache to db:::::::::::::::::::::::::::::::::::::::::::::::::::::
 	variable dbindex; variable dbtitles; variable dblinks; variable dbdescs
 	variable cachetitles; variable cachelinks; variable cachedescs; variable cacheindex
-	set cindex 1
+	set cachesize [array size cachetitles]
+	set count 0
 	foreach item [array names cacheindex] {
-		while {($cindex > 0)} {
-			#:move items from cache to db::::::::::::::::::::
-			if {![info exists cachetitles($item,$cindex)]} {set cindex 1; break}
-			set dbtitles($item,$dbindex($item)) $cachetitles($item,$cindex)
-			set dblinks($item,$dbindex($item)) $cachelinks($item,$cindex)
-			set dbdescs($item,$dbindex($item)) $cachedescs($item,$cindex)
-			incr dbindex($item)
+		set cindex 1
+		while {($cindex <= $cachesize)} {
+			set ismatch 0
+			if {![info exists cachetitles($item,$cindex)]} {break}
+			foreach dbitem [array names dbtitles] {
+				#:check database titles:::::::::::::::::::::::::
+				if {($dbtitles($dbitem) == $cachetitles($item,$cindex))} {
+					set ismatch 1
+					break
+				}
+			}
+			if {($ismatch == 0)} {
+				#:move item from cache to db:::::::::::::::::::::::::::
+				set dbtitles($item,$dbindex($item)) $cachetitles($item,$cindex)
+				set dblinks($item,$dbindex($item)) $cachelinks($item,$cindex)
+				set dbdescs($item,$dbindex($item)) $cachedescs($item,$cindex)
+				incr dbindex($item)
+				incr count
+			}
 			incr cindex
-		}	
+		}
 	}
-	puts "~cache flushed to db."
+	puts "~cache~flushed $count items to db."
 }
 
 proc iget {{src ""} {feed ""} {index ""}} {
@@ -399,7 +412,7 @@ proc fetch {{feed ""}} {
 				}
 			}
 			#:add news if no match found::::::::::::::::::::::::::::
-			if {$ismatch != 1} {
+			if {$ismatch == 0} {
 				set cachetitles($feed,$cacheindex($feed)) $title
 				set cachelinks($feed,$cacheindex($feed)) $link
 				set cachedescs($feed,$cacheindex($feed)) $descr
