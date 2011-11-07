@@ -19,8 +19,8 @@
 # feed. Fetch feeds. Refresh all feeds. Add/remove feeds. etc.
 # 
 # To use: open tclsh. Do 'source grabrss.tcl'. Then use 'refresh' to update all feeds.
-# commands available: cget, dget, clist, dlist, flist, fadd, fdel, ctrim, fetch.
-#  *c=cache f=feed d=database
+# commands available: iget, flist, fadd, fdel, search, listfeed, ctrim, fetch.
+#  *c=cache f=feed d=database i=item (news item)
 #
 #:::::::::::::::::::::::::::Configuration:::::::::::::::::::::::::::::::::::::::
 #
@@ -45,8 +45,12 @@ set feeds(pclosforum) "http://www.pclinuxos.com/forum/index.php?board=15.0;type=
 package require http
 if {![catch {package require tls}]} { ::http::register https 443 ::tls::socket }
 
+proc grab {} {
+	source "grabrss.tcl"
+}
+
 proc help {args} {
-	puts "grabrss commands available: cget dget fadd fdel flist clist dlist ctrim fetch"
+	puts "~grabrss commands available: iget fadd fdel flist listfeed search ctrim fetch"
 	puts "run command without args for more information on it."
 }
 
@@ -59,29 +63,34 @@ proc refresh {args} {
 	}
 }
 
-proc cget {{feed ""} {index ""}} {
+proc iget {{src ""} {feed ""} {index ""}} {
 	#:output news item stored in cache at <feed> <index>::::::::::::::::::::
-	if {($feed == "") || ($index == "")} {puts "cache - get item from feed at index. usage: cget <feed> <index>"; return}
-	variable cachetitles; variable cachelinks; variable cachedescs
-	puts "Title ~ $cachetitles($feed,$index)"
-	puts "Link ~ $cachelinks($feed,$index)"
-	set desc [htmldecode $cachedescs($feed,$index)]
-	puts "Description ~ $desc"
-}
-
-proc dget {{feed ""} {index ""}} {
-	#:output news item stored in db at <feed> <index>:::::::::::::::::::::::
-	if {($feed == "") || ($index == "")} {puts "database - get item from feed at index. usage: dget <feed> <index>"; return}
-	variable dbtitles; variable dblinks; variable dbdescs
-	set desc [htmldecode $dbdescs($feed,$index)]
-	puts "Title ~ $dbtitles($feed,$index)"
-	puts "Link ~ $dblinks($feed,$index)"
+	if {($feed == "") || ($index == "") || ($src == "")} {puts "~get item from src(db or cache) in feed at index. usage: iget <source> <feed> <index>"; return}
+	switch "$src" {
+		"db" {
+			variable dblinks; variable dbtitles; #variable dbindex; variable dbdescs
+			array set tmplinks [array get dblinks]; array set tmptitles [array get dbtitles]
+			#array set tmpindex [array get dbindex]; array set tmpdescs [array get dbdescs]
+		}
+		"cache" {
+			variable cachetitles; variable cachelinks; #variable cachedescs; variable cacheindex
+			array set tmplinks [array get cachelinks]; array set tmptitles [array get cachetitles]
+			 #array set tmpdescs [array get cachedescs]; array set tmpindex [array get cacheindex];
+		}
+		default {
+			puts "specify a valid src. Options: db or cache."
+			return
+		}
+	}
+	puts "Title ~ $tmptitles($feed,$index)"
+	puts "Link ~ $tmplinks($feed,$index)"
+	set desc [htmldecode $tmpdescs($feed,$index)]
 	puts "Description ~ $desc"
 }
 
 proc fadd {{feed ""} {url ""}} {
 	#:add a feed to the feeds list::::::::::::::::::::::::::::::::::::::::::
-	if {($feed == "") || ($url == "")} {puts "add an rss feed to feeds list. usage: fadd <feedname> <url>"; return}
+	if {($feed == "") || ($url == "")} {puts "~add an rss feed to feeds list. usage: fadd <feedname> <url>"; return}
 	variable feeds
 	if {![info exists feeds($feed)]} {
 		set feeds($feed) $url
@@ -93,7 +102,7 @@ proc fadd {{feed ""} {url ""}} {
 
 proc fdel {{feed ""}} {
 	#:remove a feed from the feedss list::::::::::::::::::::::::::::::::::::
-	if {($feed == "")} {puts "delete an rss feed from feeds list. usage: fdel <feed> <url>"; return}
+	if {($feed == "")} {puts "~delete an rss feed from feeds list. usage: fdel <feed> <url>"; return}
 	variable feeds
 	if {[info exists feeds($feed)]} {
 		unset feeds($feed)
@@ -112,41 +121,85 @@ proc flist {args} {
 	puts "Available feeds: $result"
 }
 
-proc clist {{feed ""}} {
-	#:list feed elements from cache:::::::::::::::::::::::::::::::::::::::::
-	if {($feed == "")} {puts "cache - list items from feed. usage: clist <feed>"; return}
-	variable cachetitles; variable cachelinks; variable cachedescs; variable cacheindex
-	variable maxcache
-	set count 1
-	while {($count <= $maxcache)} {
-		if {[info exists cachetitles($feed,$count)]} {
-			puts "~$feed~$count~ Title: $cachetitles($feed,$count) ~ $cachelinks($feed,$count)"
-			incr count
-		} else {
-			break
+proc search {{src ""} {term ""}} {
+	#:search for items containing term:::::::::::::::::::::::::::::::
+	if {($term == "") || ($src == "")} {puts "~search for items from src(db or cache) containing term. usage: search <source> <term>"; return}
+	switch "$src" {
+		"db" {
+			variable dblinks; variable dbtitles; #variable dbindex; variable dbdescs
+			array set tmplinks [array get dblinks]; array set tmptitles [array get dbtitles]
+			#array set tmpindex [array get dbindex]; array set tmpdescs [array get dbdescs]
+		}
+		"cache" {
+			variable cachetitles; variable cachelinks; #variable cachedescs; variable cacheindex
+			array set tmplinks [array get cachelinks]; array set tmptitles [array get cachetitles]
+			 #array set tmpdescs [array get cachedescs]; array set tmpindex [array get cacheindex];
+		}
+		default {
+			puts "specify a valid src. Options: db or cache."
+			return
 		}
 	}
+	set count 0
+	foreach item [array names tmptitles] {
+		if {[string match -nocase "*${term}*" $tmptitles($item)]} {
+			incr count
+			puts "match $count: $tmptitles($item) ~ $tmplinks($item)"
+		}
+	}
+	
 }
 
-proc dlist {{feed ""}} {
-	#:list feed elements from db::::::::::::::::::::::::::::::::::::::::::::
-	if {($feed == "")} {puts "database - list items from feed. usage: dlist <feed>"; return}
-	variable dbindex; variable dbtitles; variable dblinks; variable dbdescs
-	variable maxcache
-	set count 1
-	while {($count <= $maxcache)} {
-		if {[info exists dbtitles($feed,$count)]} {
-			puts "~$feed~$count~ Title: $dbtitles($feed,$count) ~ $dblinks($feed,$count)"
-			incr count
-		} else {
-			break
+proc listfeed {{src ""} {feed ""}} {
+	#:list feed elements from cache or db:::::::::::::::::::::::::::::::::::
+	if {($feed == "") || ($src == "")} {puts "~list items in feed from src(db or cache). usage: listfeed <source> <feed>"; return}
+	switch "$src" {
+		"db" {
+			variable dblinks; variable dbtitles; #variable dbindex; variable dbdescs
+			array set tmplinks [array get dblinks]; array set tmptitles [array get dbtitles]
+			#array set tmpindex [array get dbindex]; array set tmpdescs [array get dbdescs]
 		}
+		"cache" {
+			variable cachetitles; variable cachelinks; #variable cachedescs; variable cacheindex
+			array set tmplinks [array get cachelinks]; array set tmptitles [array get cachetitles]
+			 #array set tmpdescs [array get cachedescs]; array set tmpindex [array get cacheindex];
+		}
+		default {
+			puts "specify a valid src. Options: db or cache."
+			return
+		}
+	}
+	variable maxcache; variable feeds
+	set count 1
+	if {[string match -nocase "all" $feed]} {
+		foreach item [array names feeds] {
+			set contin 1; set count 1
+			while {($count > 0)} {
+				if {[info exists tmptitles($item,$count)]} {
+					puts "~$item,$count ~ $tmptitles($item,$count) ~ $tmplinks($item,$count)"
+					incr count
+				} else {
+					set contin 0
+				}
+			}
+		}
+	} else {
+		set contin 1; set count 1
+		while {($contin > 0)} {
+			if {[info exists tmptitles($feed,$count)]} {
+				puts "~$feed,$count ~ $tmptitles($feed,$count) ~ $tmplinks($feed,$count)"
+				incr count
+			} else {
+				set contin 0
+			}
+		}
+		
 	}
 }
 
 proc ctrim {{feed ""}} {
 	#:trim cache to maxcache::::::::::::::::::::::::::::::::::::::::::::::::
-	if {($feed == "")} {puts "trim feed to 'maxcache' size and store trimmed items in database. usage: ctrim <feed>"; return}
+	if {($feed == "")} {puts "~trim feed to 'maxcache' size and store trimmed items in database. usage: ctrim <feed>"; return}
 	variable dbindex; variable dbtitles; variable dblinks; variable dbdescs
 	variable cachetitles; variable cachelinks; variable cachedescs; variable cacheindex
 	variable maxcache
@@ -184,7 +237,7 @@ proc ctrim {{feed ""}} {
 
 proc fetch {{feed ""}} {
 	#:fetch feed data and save news to cache::::::::::::::::::::::::::::::::
-	if {($feed == "")} {puts "fetch rss data from web and add new news to cache. usage: fetch <feed>"; return}
+	if {($feed == "")} {puts "~fetch rss data from web and add new news to cache. usage: fetch <feed>"; return}
 	variable feeds
 	if {[info exists feeds($feed)]} {set url $feeds($feed)} else {puts "invalid feed. check 'flist'?"; return}
 	set ua "Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.9.0.5) Gecko/2008120122 Firefox/3.0.5"
@@ -352,5 +405,5 @@ proc htmldecode {{data ""}} {
 	set data [subst "$data"]
 	return $data
 }
-
 puts "grabrss by lee8oi - loaded"
+refresh
