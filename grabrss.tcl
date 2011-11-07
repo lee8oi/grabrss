@@ -21,13 +21,12 @@
 # restore db from file, etc.
 # 
 # To use: open tclsh. Do 'source grabrss.tcl'. Then use 'refresh' to update all feeds.
-# commands available: iget, cadd, flist, fadd, fdel, search, listfeed, ctrim, fetch,
+# commands available: help, iget, cadd, flist, fadd, fdel, search, listfeed, ctrim, fetch,
 # dbackup, drestore, cflush, htmldecode, unhtml.
 #  *c=cache f=feed d=database i=item (news item)
 #
 # Todo:
 # 1.allow item and feed deletion (stored data).
-# 2.allow item creation.
 #
 #:::::::::::::::::::::::::::Configuration:::::::::::::::::::::::::::::::::::::::
 #
@@ -76,11 +75,11 @@ proc print {{type ""} {msg ""}} {
 	#:print msg to output:::::::::::::::::::::::::::::::::::::::::::::::::::
 	if {($type == "") || ($msg == "")} {print help "~print a msg to output. usage: print <type> <msg>"; return}
 	switch "$type" {
-		"puts" {
-			puts $msg
-		}
 		"help" {
 			puts "~help: $msg"
+		}
+		default {
+			puts "$msg"
 		}
 	}
 }
@@ -256,7 +255,7 @@ proc search {{src ""} {field ""} {term ""}} {
 			foreach item [array names tmptitles] {
 				if {[string match -nocase "*${term}*" $tmptitles($item)]} {
 					incr count
-					print puts "~$src~title~ match $count: $tmptitles($item) ~ $tmplinks($item)"
+					print puts "~$src~$item~ title match $count: $tmptitles($item)"
 				}
 			}
 		}
@@ -264,7 +263,7 @@ proc search {{src ""} {field ""} {term ""}} {
 			foreach item [array names tmplinks] {
 				if {[string match -nocase "*${term}*" $tmplinks($item)]} {
 					incr count
-					print puts "~$src~link~ match $count: $tmplinks($item) ~ $tmplinks($item)"
+					print puts "~$src~$item~ link match $count: $tmplinks($item)"
 				}
 			}
 		}
@@ -272,7 +271,7 @@ proc search {{src ""} {field ""} {term ""}} {
 			foreach item [array names tmpdescs] {
 				if {[string match -nocase "*${term}*" $tmpdescs($item)]} {
 					incr count
-					print puts "~$src~desc~ match $count: $tmpdescs($item) ~ $tmpdescs($item)"
+					print puts "~$src~$item~ desc match $count: $tmpdescs($item)"
 				}
 			}
 		}
