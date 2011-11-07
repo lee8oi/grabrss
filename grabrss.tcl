@@ -21,7 +21,7 @@
 # restore db from file, etc.
 # 
 # To use: open tclsh. Do 'source grabrss.tcl'. Then use 'refresh' to update all feeds.
-# commands available: iget, iadd, flist, fadd, fdel, search, listfeed, ctrim, fetch,
+# commands available: iget, cadd, flist, fadd, fdel, search, listfeed, ctrim, fetch,
 # dbackup, drestore, cflush, htmldecode, unhtml.
 #  *c=cache f=feed d=database i=item (news item)
 #
@@ -59,7 +59,7 @@ proc grab {} {
 }
 
 proc help {args} {
-	print help "grabrss commands available: iget iadd fadd fdel flist listfeed search\
+	print help "grabrss commands available: iget cadd fadd fdel flist listfeed search\
 	ctrim cflush fetch dbackup drestore unhtml htmldecode"
 	print help "run command without args for more information on it."
 }
@@ -170,10 +170,10 @@ proc iget {{src ""} {feed ""} {index ""}} {
 	}
 }
 
-proc iadd {{feed ""} {title ""} {link ""} {desc ""}} {
+proc cadd {{feed ""} {title ""} {link ""} {desc ""}} {
 	#:add news item to cache::::::::::::::::::::::::::::::::::::::::::::::::
 	if {($title == "") || ($link == "") || ($desc == "")} {print help "add news item to cache in feed. usage:\
-		iadd <feed> <title> <link> <desc>"; return}
+		cadd <feed> <title> <link> <desc>"; return}
 	variable source; variable cachetitles; variable cachelinks; variable cachedescs
 	variable cacheindex
 	if {![info exists cacheindex($feed)]} {set cacheindex($feed) 1}
@@ -441,7 +441,7 @@ proc fetch {{feed ""}} {
 			if {![info exists title]} {set title "(none)"} {set title [unhtml [join [split $title]]]}
 			if {![info exists link]}  {set link  "(none)"} {set link [unhtml [join [split $link]]]}
 			if {![info exists descr]} {set descr "(none)"} {set descr [unhtml [join [split $descr]]]}
-			iadd $feed $title $link $descr
+			cadd $feed $title $link $descr
 		}
 		return
 	} else {
